@@ -1,8 +1,8 @@
 const siteMetadata = {
-  title: 'Nadim Tuhin | Blog',
+  title: 'Nadim Tuhin',
   author: 'Nadim Tuhin',
-  headerTitle: 'Nadim Tuhin Blog',
-  description: 'My views on software development, deployment on the cloud.',
+  headerTitle: 'Nadim Tuhin',
+  description: 'My views on software development, deployment over the cloud.',
   language: 'en-us',
   theme: 'system', // system, dark or light
   siteUrl: 'https://nadimtuhin-nextjs.vercel.app',
