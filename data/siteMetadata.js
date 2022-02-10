@@ -7,7 +7,7 @@ const siteMetadata = {
   theme: 'system', // system, dark or light
   siteUrl: 'https://nadimtuhin-nextjs.vercel.app',
   siteRepo: 'https://github.com/nadimtuhin/nadimtuhin-nextjs',
-  siteLogo: '/static/images/logo.png',
+  siteLogo: '/static/images/logo-nt.png',
   image: '/static/images/avatar.png',
   socialBanner: '/static/images/twitter-card.png',
   email: 'address@yoursite.com',
