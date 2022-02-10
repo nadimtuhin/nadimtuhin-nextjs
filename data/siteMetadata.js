@@ -1,25 +1,25 @@
 const siteMetadata = {
-  title: 'Next.js Starter Blog',
-  author: 'Tails Azimuth',
-  headerTitle: 'TailwindBlog',
-  description: 'A blog created with Next.js and Tailwind.css',
+  title: 'Nadim Tuhin | Blog',
+  author: 'Nadim Tuhin',
+  headerTitle: 'Nadim Tuhin Blog',
+  description: 'My views on software development, deployment on the cloud.',
   language: 'en-us',
   theme: 'system', // system, dark or light
-  siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
-  siteRepo: 'https://github.com/timlrx/tailwind-nextjs-starter-blog',
+  siteUrl: 'https://nadimtuhin-nextjs.vercel.app',
+  siteRepo: 'https://github.com/nadimtuhin/nadimtuhin-nextjs',
   siteLogo: '/static/images/logo.png',
   image: '/static/images/avatar.png',
   socialBanner: '/static/images/twitter-card.png',
   email: 'address@yoursite.com',
-  github: 'https://github.com',
-  twitter: 'https://twitter.com/Twitter',
-  facebook: 'https://facebook.com',
-  youtube: 'https://youtube.com',
-  linkedin: 'https://www.linkedin.com',
+  github: 'https://github.com/nadimtuhin',
+  twitter: 'https://twitter.com/nadimtuhin',
+  facebook: 'https://facebook.com/tadimnuhin',
+  youtube: 'https://www.youtube.com/channel/UC6Sl3yAcwAmrXX9HXhBpGNQ',
+  linkedin: 'https://www.linkedin.com/in/nadimtuhin',
   locale: 'en-US',
   analytics: {
     // supports plausible, simpleAnalytics, umami or googleAnalytics
-    plausibleDataDomain: '', // e.g. tailwind-nextjs-starter-blog.vercel.app
+    plausibleDataDomain: '', // e.g. nadimtuhin-nextjs.vercel.app
     simpleAnalytics: false, // true or false
     umamiWebsiteId: '', // e.g. 123e4567-e89b-12d3-a456-426614174000
     googleAnalyticsId: '', // e.g. UA-000000-2 or G-XXXXXXX
