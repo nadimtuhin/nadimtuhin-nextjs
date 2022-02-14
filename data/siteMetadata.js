@@ -10,7 +10,7 @@ const siteMetadata = {
   siteLogo: '/static/images/logo-nt.png',
   image: '/static/images/avatar.png',
   socialBanner: '/static/images/twitter-card.png',
-  email: 'address@yoursite.com',
+  email: 'nadimtuhin@gmail.com',
   github: 'https://github.com/nadimtuhin',
   twitter: 'https://twitter.com/nadimtuhin',
   facebook: 'https://facebook.com/tadimnuhin',
@@ -22,7 +22,7 @@ const siteMetadata = {
     plausibleDataDomain: '', // e.g. nadimtuhin-nextjs.vercel.app
     simpleAnalytics: false, // true or false
     umamiWebsiteId: '', // e.g. 123e4567-e89b-12d3-a456-426614174000
-    googleAnalyticsId: '', // e.g. UA-000000-2 or G-XXXXXXX
+    googleAnalyticsId: 'G-GT7VPT97SR', // e.g. UA-000000-2 or G-XXXXXXX
   },
   newsletter: {
     // supports mailchimp, buttondown, convertkit, klaviyo
