@@ -5,7 +5,7 @@ const siteMetadata = {
   description: 'My views on software development, deployment over the cloud.',
   language: 'en-us',
   theme: 'system', // system, dark or light
-  siteUrl: 'https://nadimtuhin-nextjs.vercel.app',
+  siteUrl: 'https://nadimtuhin.com',
   siteRepo: 'https://github.com/nadimtuhin/nadimtuhin-nextjs',
   siteLogo: '/static/images/logo-nt.png',
   image: '/static/images/avatar.png',
@@ -19,7 +19,7 @@ const siteMetadata = {
   locale: 'en-US',
   analytics: {
     // supports plausible, simpleAnalytics, umami or googleAnalytics
-    plausibleDataDomain: '', // e.g. nadimtuhin-nextjs.vercel.app
+    plausibleDataDomain: '', // e.g. nadimtuhin.com
     simpleAnalytics: false, // true or false
     umamiWebsiteId: '', // e.g. 123e4567-e89b-12d3-a456-426614174000
     googleAnalyticsId: 'G-GT7VPT97SR', // e.g. UA-000000-2 or G-XXXXXXX
@@ -32,7 +32,7 @@ const siteMetadata = {
   comment: {
     // Select a provider and use the environment variables associated to it
     // https://vercel.com/docs/environment-variables
-    provider: 'disqus', // supported providers: giscus, utterances, disqus
+    provider: 'giscus', // supported providers: giscus, utterances, disqus
     giscusConfig: {
       // Visit the link below, and follow the steps in the 'configuration' section
       // https://giscus.app/
