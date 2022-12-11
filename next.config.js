@@ -66,6 +66,25 @@ module.exports = withBundleAnalyzer({
       },
     ]
   },
+  async redirects() {
+    return [
+      {
+        source: '/linkedin',
+        destination: 'https://www.linkedin.com/in/nadimtuhin/',
+        permanent: true,
+      },
+      {
+        source: '/facebook',
+        destination: 'https://facebook.com/tadimnuhin/',
+        permanent: true,
+      },
+      {
+        source: '/github',
+        destination: 'https://github.com/nadimtuhin/',
+        permanent: true,
+      },
+    ]
+  },
   webpack: (config, { dev, isServer }) => {
     config.module.rules.push({
       test: /\.(png|jpe?g|gif|mp4)$/i,
