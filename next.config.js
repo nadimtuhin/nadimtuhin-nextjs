@@ -83,6 +83,11 @@ module.exports = withBundleAnalyzer({
         destination: 'https://github.com/nadimtuhin/',
         permanent: true,
       },
+      {
+        source: '/meet',
+        destination: 'https://whereby.com/nadimtuhin',
+        permanent: true,
+      }
     ]
   },
   webpack: (config, { dev, isServer }) => {
