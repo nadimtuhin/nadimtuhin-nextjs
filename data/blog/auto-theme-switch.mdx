@@ -1,0 +1,80 @@
+---
+title: 'Building an Intelligent Auto Theme Switch in Next.js'
+date: '2024-12-21'
+tags: ['next.js', 'react', 'theme', 'dark-mode', 'ux']
+summary: 'How I enhanced my website theme switcher to automatically adjust between light and dark modes based on time of day while preserving user preferences.'
+---
+
+As a developer who spends long hours coding, I understand the importance of having appropriate screen brightness and contrast throughout the day. While many websites offer dark mode toggles, I wanted to create something more intelligent - a theme switcher that automatically adjusts based on the time of day while still respecting user preferences.
+
+## The Vision
+
+I wanted to create a theme switcher that would:
+
+- Automatically switch between light and dark modes based on time (6 AM - 6 PM)
+- Allow users to override the automatic setting
+- Remember user preferences using localStorage
+- Provide clear visual feedback about the current mode
+- Update in real-time as day transitions to night
+
+## Implementation Details
+
+The core of the implementation revolves around three main themes: 'auto', 'light', and 'dark'. Here's how the automatic mode works:
+
+```javascript
+const isDaytime = () => {
+  const hours = new Date().getHours()
+  return hours >= 6 && hours < 18
+}
+```
+
+When in auto mode, the theme checks every minute if it's daytime:
+
+```javascript
+if (savedTheme === 'auto') {
+  const interval = setInterval(() => {
+    setTheme(isDaytime() ? 'light' : 'dark')
+  }, 60000) // Update every minute
+  return () => clearInterval(interval)
+}
+```
+
+## User Experience Considerations
+
+I paid special attention to the user experience:
+
+1. **Smooth Transitions**: The theme switcher cycles through options: auto → light → dark → auto
+2. **Informative Icons**: Each mode has a distinct icon (sun for light, moon for dark, half-circle for auto)
+3. **Helpful Tooltips**: Added descriptive tooltips explaining each mode
+4. **Persistence**: User preferences are saved in localStorage
+
+## Technical Challenges
+
+The main challenges involved:
+
+- **Hydration**: Preventing theme flicker on initial load
+- **State Management**: Handling theme state across components
+- **Time-based Updates**: Implementing efficient time checks without excessive re-renders
+
+## The Result
+
+The final implementation provides a seamless experience where:
+
+- Users entering the site during daytime see the light theme
+- The theme automatically switches to dark mode after 6 PM
+- Users can override the automatic setting at any time
+- Their preferences persist across sessions
+
+## Future Improvements
+
+Potential enhancements could include:
+
+- Customizable time ranges for auto-switching
+- Gradual transitions between themes
+- System theme integration as another auto option
+
+## Conclusion
+
+This enhanced theme switcher demonstrates how small UX improvements can significantly impact user experience. By combining automatic time-based switching with user preferences, we've created a more intelligent and user-friendly theme system.
+
+The complete implementation is available in my website's [GitHub repository](https://github.com/nadimtuhin/nadimtuhin-nextjs), and you can see it in action right now in the navigation bar.
