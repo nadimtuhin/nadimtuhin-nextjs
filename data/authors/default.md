@@ -1,7 +1,7 @@
 ---
 name: Nadim Tuhin
 avatar: /static/images/avatar.png
-occupation: Software Engineer, L3
+occupation: Senior Software Engineer II
 company: Pathao
 email: nadimtuhin@gmail.com
 twitter: https://twitter.com/nadimtuhin
