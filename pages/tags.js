@@ -22,18 +22,21 @@ export default function Tags({ tags }) {
             Tags
           </h1>
         </div>
-        <div className="flex max-w-lg flex-wrap">
+        <div className="flex max-w-lg flex-wrap justify-center">
           {Object.keys(tags).length === 0 && 'No tags found.'}
           {sortedTags.map((t) => {
             return (
-              <div key={t} className="mb-2 mr-5 mt-2">
-                <Tag text={t} />
-                <Link
-                  href={`/tags/${kebabCase(t)}`}
-                  className="-ml-2 text-sm font-semibold uppercase text-gray-600 dark:text-gray-300"
-                >
-                  {` (${tags[t]})`}
-                </Link>
+              <div key={t} className="group relative mb-3 mr-4 mt-2">
+                <div className="absolute -inset-2 rounded-lg bg-gradient-to-r from-primary-200 to-primary-100 opacity-0 blur transition duration-500 group-hover:opacity-10 dark:from-primary-900 dark:to-primary-800" />
+                <div className="relative">
+                  <Tag text={t} />
+                  <Link
+                    href={`/tags/${kebabCase(t)}`}
+                    className="-ml-2 text-sm font-medium text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400"
+                  >
+                    <span className="text-gray-400 dark:text-gray-500">·</span> {tags[t]} posts
+                  </Link>
+                </div>
               </div>
             )
           })}
