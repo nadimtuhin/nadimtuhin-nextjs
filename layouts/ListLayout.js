@@ -30,10 +30,10 @@ export default function ListLayout({ posts, title, initialDisplayPosts = [], pag
               type="text"
               onChange={(e) => setSearchValue(e.target.value)}
               placeholder="Search articles"
-              className="block w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-900 dark:bg-gray-800 dark:text-gray-100"
+              className="block w-full rounded-lg border-2 border-gray-200 bg-white px-4 py-2 text-gray-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-primary-500"
             />
             <svg
-              className="absolute right-3 top-3 h-5 w-5 text-gray-400 dark:text-gray-300"
+              className="absolute right-3 top-3 h-5 w-5 text-gray-400 transition-colors group-hover:text-gray-600 dark:text-gray-300 dark:group-hover:text-gray-200"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -53,22 +53,40 @@ export default function ListLayout({ posts, title, initialDisplayPosts = [], pag
           {displayPosts.map((frontMatter) => {
             const { slug, date, title, summary, tags } = frontMatter
             return (
-              <li key={slug} className="py-4">
-                <article className="space-y-2 xl:grid xl:grid-cols-4 xl:items-baseline xl:space-y-0">
+              <li key={slug} className="py-6">
+                <article className="space-y-2 overflow-hidden rounded-xl bg-white p-6 shadow-sm transition-all hover:shadow-md dark:bg-gray-800/50 xl:grid xl:grid-cols-4 xl:items-baseline xl:space-y-0">
                   <dl>
                     <dt className="sr-only">Published on</dt>
                     <dd className="text-base font-medium leading-6 text-gray-500 dark:text-gray-400">
-                      <time dateTime={date}>{formatDate(date)}</time>
+                      <time dateTime={date} className="flex items-center gap-2">
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        {formatDate(date)}
+                      </time>
                     </dd>
                   </dl>
-                  <div className="space-y-3 xl:col-span-3">
+                  <div className="space-y-4 xl:col-span-3">
                     <div>
                       <h3 className="text-2xl font-bold leading-8 tracking-tight">
-                        <Link href={`/blog/${slug}`} className="text-gray-900 dark:text-gray-100">
+                        <Link
+                          href={`/blog/${slug}`}
+                          className="text-gray-900 transition-colors hover:text-primary-500 dark:text-gray-100 dark:hover:text-primary-400"
+                        >
                           {title}
                         </Link>
                       </h3>
-                      <div className="flex flex-wrap">
+                      <div className="-m-1 mt-3 flex flex-wrap">
                         {tags?.map((tag) => (
                           <Tag key={tag} text={tag} />
                         ))}
@@ -76,6 +94,14 @@ export default function ListLayout({ posts, title, initialDisplayPosts = [], pag
                     </div>
                     <div className="prose max-w-none text-gray-500 dark:text-gray-400">
                       {summary}
+                    </div>
+                    <div className="pt-2">
+                      <Link
+                        href={`/blog/${slug}`}
+                        className="text-primary-500 transition-colors hover:text-primary-600 dark:hover:text-primary-400"
+                      >
+                        Read more →
+                      </Link>
                     </div>
                   </div>
                 </article>
