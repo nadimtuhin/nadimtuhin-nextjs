@@ -5,10 +5,20 @@ module.exports = {
   experimental: {
     optimizeUniversalDefaults: true,
   },
+  future: {
+    respectDefaultRingColorOpacity: true,
+    disableColorOpacityUtilitiesByDefault: true,
+    relativeContentPathsByDefault: true,
+  },
   content: ['./pages/**/*.js', './components/**/*.js', './layouts/**/*.js', './lib/**/*.js'],
   darkMode: 'class',
   theme: {
     extend: {
+      printColorAdjust: {
+        exact: 'exact',
+        economy: 'economy',
+        none: 'none',
+      },
       spacing: {
         '9/16': '56.25%',
       },
