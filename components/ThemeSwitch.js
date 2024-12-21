@@ -79,7 +79,7 @@ const ThemeSwitch = () => {
       type="button"
       className="ml-1 mr-1 h-8 w-8 rounded p-1 sm:ml-4"
       onClick={toggleTheme}
-      title={getThemeTitle()}
+      title={mounted ? getThemeTitle() : ''}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
