@@ -77,7 +77,7 @@ export default function PostLayout({ frontMatter, authorDetails, next, prev, chi
                           width="38px"
                           height="38px"
                           alt="avatar"
-                          className="h-10 w-10 rounded-full ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900"
+                          className="ring-3 h-10 w-10 rounded-full ring-primary-500 ring-offset-2 dark:ring-offset-gray-900"
                         />
                       )}
                       <dl className="whitespace-nowrap text-sm font-medium leading-5">
