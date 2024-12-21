@@ -87,7 +87,7 @@ module.exports = withBundleAnalyzer({
         source: '/meet',
         destination: 'https://whereby.com/nadimtuhin',
         permanent: true,
-      }
+      },
     ]
   },
   webpack: (config, { dev, isServer }) => {
