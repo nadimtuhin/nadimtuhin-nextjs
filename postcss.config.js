@@ -5,7 +5,7 @@ module.exports = {
       overrideBrowserslist: ['> 1%', 'last 2 versions'],
       ignoreUnknownVersions: true,
       features: {
-        'color-adjust-property': false,
+        'print-color-adjust-property': false,
       },
     },
   },
