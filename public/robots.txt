@@ -1,0 +1,7 @@
+# Start of Selection
+User-agent: *
+Disallow: /api/
+Disallow: /private/
+Allow: /
+# This robots.txt file is configured to allow all web crawlers to access the site, except for API and private directories.
+# End of Selection
