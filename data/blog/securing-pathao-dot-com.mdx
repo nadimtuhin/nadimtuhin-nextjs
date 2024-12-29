@@ -18,7 +18,36 @@ Pathao.com runs on WordPress multisite, serving content in three languages:
 - Bengali site: `/bn`
 - Nepali site: `/np`
 
-Each site needs its own security considerations while maintaining consistent protection across the platform. Let's dive into how we tackled this!
+Each site needs its own security considerations while maintaining consistent protection across the platform. We faced several critical challenges:
+
+1. **High-Value Target**: As one of South Asia's leading tech companies, we were constantly targeted by:
+
+   - Automated vulnerability scanners
+   - Malicious bots and crawlers
+   - SQL injection attempts
+   - Brute force login attacks
+
+2. **Performance Impact**: Security scanning tools were causing:
+
+   - High server CPU usage from repeated scanning
+   - Increased bandwidth consumption
+   - Slower response times for legitimate users
+   - Occasional server timeouts during peak scan periods
+
+3. **Multilingual Complexity**: Managing security across three different sites meant:
+
+   - More entry points to protect
+   - Complex URL patterns to secure
+   - Different content types requiring varied security rules
+   - Maintaining consistent security across all language variants
+
+4. **WordPress-Specific Vulnerabilities**: Being on WordPress meant dealing with:
+   - Plugin security vulnerabilities
+   - Theme security issues
+   - Core WordPress exploits
+   - File upload vulnerabilities
+
+Let's dive into how we tackled this!
 
 # Security Implementation
 
@@ -211,15 +240,6 @@ location ~ "(~|`|<|>|:|;|%|\\|\s|\{|\}|\[|\]|\|)" {
 }
 ```
 
-## 6. Bot Protection
-
-```nginx
-# Block bad bots
-if ($bad_bot) {
-    return 444;
-}
-```
-
 # Performance Optimization
 
 While security was our primary focus, we also implemented performance optimizations to ensure fast content delivery.
@@ -261,22 +281,23 @@ location ~* ^/(bn|np)?/wp-content/ {
 }
 ```
 
-# Maintenance and Monitoring
+# Dealing with Bounty Hunters and Security Scanners
 
-To maintain this security setup, we follow these practices:
+One of the biggest challenges we faced was the constant load from bounty hunters and automated security scanners. As a prominent tech company in South Asia, Pathao.com was a frequent target for:
 
-1. Regular log monitoring for attack attempts
-2. Periodic security rule updates
-3. Testing after WordPress updates
-4. Security audits using test commands:
+- Bug bounty hunters running automated scans
+- Security researchers testing for vulnerabilities
+- Automated vulnerability scanners and bots
+- Penetration testing tools running continuous scans
 
-   ```bash
-   # Test upload security
-   curl -I https://pathao.com/wp-content/uploads/test.php
+These activities were creating significant server load and occasionally impacting site performance. Our security implementations helped in several ways:
 
-   # Test SQL injection protection
-   curl "https://pathao.com/?id=1' OR '1'='1"
-   ```
+1. **Early Request Filtering**: By blocking malicious patterns at the nginx level, we prevented these requests from reaching the application server
+2. **Reduced Server Load**: Security scanners often make thousands of requests testing for vulnerabilities - our rules block these at the edge
+3. **Resource Protection**: Rules preventing access to sensitive paths and files meant fewer server resources wasted on handling these requests
+4. **Improved Response Times**: By blocking known attack patterns early in the request cycle, we maintained better response times for real users
+
+The implementation effectively created a robust shield, allowing legitimate traffic through while filtering out potentially harmful automated scans.
 
 # The Results
 
