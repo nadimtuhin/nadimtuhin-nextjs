@@ -70,6 +70,11 @@ class MyDocument extends Document {
             integrity="sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc"
             crossOrigin="anonymous"
           />
+          <script
+            src="https://analytics.ahrefs.com/analytics.js"
+            data-key="Qc4+NaJlexE9AX6yp4SCUw"
+            defer="true"
+          />
         </Head>
         <body className="bg-white text-black antialiased dark:bg-gray-900 dark:text-white">
           <Main />
