@@ -8,6 +8,10 @@ class MyDocument extends Document {
           <link rel="apple-touch-icon" sizes="60x60" href="/static/favicons/apple-icon-60x60.png" />
           <link rel="apple-touch-icon" sizes="72x72" href="/static/favicons/apple-icon-72x72.png" />
           <link rel="apple-touch-icon" sizes="76x76" href="/static/favicons/apple-icon-76x76.png" />
+          <meta
+            name="ahrefs-site-verification"
+            content="d7cf323d63d52fb09b9e9cfdd3fd94857d825d15108fcbc4b531f83d4919fc7c"
+          />
           <link
             rel="apple-touch-icon"
             sizes="114x114"
