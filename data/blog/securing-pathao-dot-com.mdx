@@ -1,0 +1,292 @@
+---
+title: 'Securing Pathao.com: A Deep Dive into Enterprise-Grade WordPress Security Implementation'
+date: '2024-12-29'
+tags: ['security', 'nginx', 'wordpress', 'enterprise']
+draft: false
+summary: 'A comprehensive look at how we implemented enterprise-grade wordpress security measures on Pathao.com, including nginx configurations, WordPress hardening, and performance optimizations.'
+---
+
+Hey there! Today, I want to share how we secured Pathao.com, one of the largest ride-sharing platforms in South Asia. When you're serving millions of users across multiple countries, security isn't just a checkbox—it's a critical foundation of your infrastructure.
+
+In this post, I'll walk you through our security implementation, from basic nginx configurations to advanced attack prevention. Whether you're running a WordPress site or any web application, you'll find practical security measures you can implement today.
+
+# The Challenge
+
+Pathao.com runs on WordPress multisite, serving content in three languages:
+
+- Main site (English): `/`
+- Bengali site: `/bn`
+- Nepali site: `/np`
+
+Each site needs its own security considerations while maintaining consistent protection across the platform. Let's dive into how we tackled this!
+
+# Security Implementation
+
+## 1. Security Headers
+
+First, we implemented essential security headers to protect against common web vulnerabilities:
+
+```nginx
+# Prevent version disclosure
+server_tokens off;
+
+# HSTS for enforcing HTTPS
+add_header Strict-Transport-Security "max-age=63072000; includeSubdomains;";
+
+# Prevent clickjacking attacks
+add_header X-Frame-Options SAMEORIGIN;
+
+# Disable content-type sniffing
+add_header X-Content-Type-Options nosniff;
+
+# Enable XSS protection
+add_header X-XSS-Protection "1; mode=block";
+```
+
+These headers form our first line of defense against various attack vectors.
+
+## 2. Basic Security Measures
+
+We implemented several fundamental security measures:
+
+```nginx
+# Prevent directory listing
+autoindex off;
+
+# Block double slash in URLs
+location ~* //wp-content {
+    return 403;
+}
+
+# Block hidden files (like .git, .htaccess)
+location ~ /\. { deny all; }
+
+# Handle favicon and robots.txt efficiently
+location = /favicon.ico {
+    log_not_found off;
+    access_log off;
+}
+
+location = /robots.txt {
+    allow all;
+    log_not_found off;
+    access_log off;
+    try_files $uri /index.php?$args;
+}
+```
+
+## 3. WordPress Core Protection
+
+We implemented strict access controls for WordPress core files and functionality:
+
+```nginx
+# Block XML-RPC access
+location ~* "xmlrpc.php" { deny all; }
+location ~* "readme.txt" { deny all; }
+
+# Protect sensitive WordPress directories
+location ~* wp-admin/includes { deny all; }
+location ~* wp-includes/theme-compat/ { deny all; }
+location ~* wp-includes/js/tinymce/langs/.*\.php { deny all; }
+
+# Block access to configuration files
+location ~ /(\.|wp-config.php|readme.html|license.txt) { deny all; }
+
+# Block temp files
+location ~ ~$ { access_log off; log_not_found off; deny all; }
+
+# Block archive files
+location ~* ^/(wp-content)/(.*?)\.(text|txt|zip|gz|tar|bzip2|7z)$ { deny all; }
+```
+
+## 4. Upload Directory Security
+
+Comprehensive protection for upload directories:
+
+```nginx
+# Block backup directories
+location ~ ^/wp-content/uploads/sucuri { deny all; }
+location ~ ^/wp-content/updraft { deny all; }
+
+# Protect plugin/theme documentation
+location ~* ^/wp-content/plugins/.+\.(txt|log|md)$ {
+    deny all;
+    error_page 403 =404 / ;
+}
+
+# Secure multisite uploads
+location ~* ^/wp-content/uploads/sites/\d+/ {
+    try_files $uri $uri/ /index.php?$args;
+    location ~ \.php$ {
+        deny all;
+    }
+}
+
+# Block PHP execution in uploads
+location ~* /wp-content/uploads/.*\.php$ {
+    deny all;
+}
+
+# Block restricted file types in uploads
+location ~* ^/wp-content/uploads/.*.(html|htm|shtml|php|js|swf|css)$ {
+    add_header X-Block-Reason "Restricted Upload File Type" always;
+    deny all;
+    error_page 403 =404 / ;
+}
+```
+
+## 5. Attack Prevention
+
+### SQL Injection Protection
+
+```nginx
+# Block SQL injection attempts
+location ~* "(\'|\")(.*)(drop|insert|md5|select|union)" {
+    add_header X-Block-Reason "SQL Injection Attempt" always;
+    deny all;
+}
+```
+
+### Path Traversal Prevention
+
+```nginx
+# Block path traversal attempts
+location ~ "(\\|\.\.\.|\.\./|~|`|<|>|\|)" {
+    add_header X-Block-Reason "Path Traversal" always;
+    deny all;
+}
+```
+
+### File Inclusion & CGI Protection
+
+```nginx
+# Block sensitive file extensions
+location ~* \.(engine|inc|info|install|make|module|profile|test|po|sh|.*sql|theme|tpl(\.php)?|xtmpl)$ {
+    add_header X-Block-Reason "Sensitive File Extension" always;
+    return 444;
+}
+
+# Block CGI execution
+location ~* \.(pl|cgi|py|sh|lua)$ {
+    add_header X-Block-Reason "CGI/Script Execution Not Allowed" always;
+    return 444;
+}
+```
+
+### Documentation & Backup Protection
+
+```nginx
+# Block access to documentation files
+location ~* "/(^$|readme|license|example|README|LEGALNOTICE|INSTALLATION|CHANGELOG)\.(txt|html|md)" {
+    add_header X-Block-Reason "Documentation File Protected" always;
+    deny all;
+}
+
+# Block access to backup files
+location ~* "\.(old|orig|original|php#|php~|php_bak|save|swo|aspx?|tpl|sh|bash|bak?|cfg|cgi|dll|exe|git|hg|ini|jsp|log|mdb|out|sql|svn|swp|tar|rdf)$" {
+    add_header X-Block-Reason "Backup/Log File Protected" always;
+    deny all;
+}
+```
+
+### XSS & Command Injection Protection
+
+```nginx
+# Block XSS attempts
+location ~* "(<|%3C).*script.*(>|%3)" {
+    add_header X-Block-Reason "XSS Attempt" always;
+    deny all;
+}
+
+# Block remote file inclusion attempts
+location ~* "(https?|ftp|php):/" {
+    add_header X-Block-Reason "Remote File Inclusion Attempt" always;
+    deny all;
+}
+
+# Block command injection attempts
+location ~ "(~|`|<|>|:|;|%|\\|\s|\{|\}|\[|\]|\|)" {
+    add_header X-Block-Reason "Command Injection Attempt" always;
+    deny all;
+}
+```
+
+## 6. Bot Protection
+
+```nginx
+# Block bad bots
+if ($bad_bot) {
+    return 444;
+}
+```
+
+# Performance Optimization
+
+While security was our primary focus, we also implemented performance optimizations to ensure fast content delivery.
+
+## 1. Direct Static File Serving
+
+Instead of proxying to Apache, we serve static files directly through nginx for better performance:
+
+```nginx
+# Multilingual static asset handling
+location ~* ^/(bn|np)?/.*\.(jpg|jpeg|png|gif|ico|css|js|svg|woff2)$ {
+    access_log off;
+    expires max;
+    add_header Cache-Control "public, no-transform";
+    add_header X-Static-File "true";
+    try_files $uri $uri/ =404;
+}
+```
+
+This configuration:
+
+- Handles files for all language variants
+- Implements aggressive caching
+- Bypasses Apache completely for static content
+- Reduces server load significantly
+
+## 2. WordPress Content Optimization
+
+We apply similar optimizations to WordPress content:
+
+```nginx
+# WordPress content handling
+location ~* ^/(bn|np)?/wp-content/ {
+    access_log off;
+    expires max;
+    add_header Cache-Control "public, no-transform";
+    add_header X-Static-File "true";
+    try_files $uri $uri/ =404;
+}
+```
+
+# Maintenance and Monitoring
+
+To maintain this security setup, we follow these practices:
+
+1. Regular log monitoring for attack attempts
+2. Periodic security rule updates
+3. Testing after WordPress updates
+4. Security audits using test commands:
+
+   ```bash
+   # Test upload security
+   curl -I https://pathao.com/wp-content/uploads/test.php
+
+   # Test SQL injection protection
+   curl "https://pathao.com/?id=1' OR '1'='1"
+   ```
+
+# The Results
+
+After implementing these security measures, we've seen:
+
+1. **Zero Security Incidents**: No successful attacks or breaches in production
+2. **Better Performance**: Our security layers actually helped improve site speed by blocking malicious requests early
+3. **Lower Server Load**: By blocking bad bots and attacks at the nginx level, we reduced unnecessary load on our application servers
+4. **Improved SEO**: Search engines love secure sites, and our security headers helped boost our rankings
+
+The best part? These security measures are battle-tested in production, serving thousands of users daily. They're not just theoretical—they work.
+
+Have you implemented similar security measures? Or do you have questions about any specific security rule? Let me know in the comments below!
