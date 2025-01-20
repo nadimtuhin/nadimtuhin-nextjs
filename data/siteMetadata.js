@@ -9,7 +9,7 @@ const siteMetadata = {
   siteRepo: 'https://github.com/nadimtuhin/nadimtuhin-nextjs',
   siteLogo: '/static/images/logo-nt.png',
   image: '/static/images/avatar.png',
-  socialBanner: '/static/images/twitter-card.png',
+  socialBanner: '/static/images/og-image.png',
   email: 'nadimtuhin@gmail.com',
   github: 'https://github.com/nadimtuhin',
   twitter: 'https://twitter.com/nadimtuhin',
