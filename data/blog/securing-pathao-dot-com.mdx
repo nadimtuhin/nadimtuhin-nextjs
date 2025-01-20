@@ -311,3 +311,147 @@ After implementing these security measures, we've seen:
 The best part? These security measures are battle-tested in production, serving thousands of users daily. They're not just theoretical—they work.
 
 Have you implemented similar security measures? Or do you have questions about any specific security rule? Let me know in the comments below!
+
+# Rate Limiting
+
+To protect against abuse and DDoS attacks, we implemented comprehensive rate limiting:
+
+```nginx
+# Define memory zones and rates for different request types
+# Format: limit_req_zone $identifier zone=name:size rate=r/time_unit;
+
+# General API requests
+limit_req_zone $binary_remote_addr zone=general_api:10m rate=60r/m;
+
+# Resource-intensive operations
+limit_req_zone $binary_remote_addr zone=intensive_ops:10m rate=10r/m;
+
+# Static file access
+limit_req_zone $request_uri zone=static_files:10m rate=60r/s;
+
+# Frontend requests
+limit_req_zone $binary_remote_addr zone=frontend:10m rate=150r/m;
+
+# Admin area requests
+limit_req_zone $binary_remote_addr zone=admin:10m rate=600r/m;
+```
+
+This configuration demonstrates a tiered rate limiting approach:
+
+- Low rate (10r/m) for resource-intensive operations
+- Medium rate (60r/m) for general API endpoints
+- High rate (150r/m) for frontend requests
+- Very high rate (600r/m) for admin operations
+- URI-based limiting (60r/s) for static resources
+
+Apply these limits in your location blocks:
+
+```nginx
+# Example: Applying rate limits to different endpoints
+
+# Resource-intensive endpoint
+location /api/resource-heavy {
+    limit_req zone=intensive_ops burst=5 nodelay;
+    # ... rest of your configuration
+}
+
+# General API endpoint
+location /api/ {
+    limit_req zone=general_api burst=10 nodelay;
+    # ... rest of your configuration
+}
+
+# Admin area
+location /wp-admin/ {
+    limit_req zone=admin burst=20 nodelay;
+    # ... rest of your configuration
+}
+```
+
+# Testing and Verification
+
+Here's a template for testing your security implementation:
+
+1. **Basic Access Testing**:
+
+   ```bash
+   # Test homepage access
+   curl -I https://your-domain.com/
+
+   # Test subsite access (if using multisite)
+   curl -I https://your-domain.com/site1/
+   curl -I https://your-domain.com/site2/
+   ```
+
+2. **Security Rule Testing**:
+
+   ```bash
+   # Test file execution protection
+   curl -I "https://your-domain.com/wp-content/uploads/test.php"
+   curl -I "https://your-domain.com/wp-content/themes/test.php"
+
+   # Test SQL injection protection
+   curl "https://your-domain.com/?id=1' OR '1'='1"
+   curl "https://your-domain.com/?user=admin'--"
+
+   # Test path traversal protection
+   curl -I "https://your-domain.com/wp-content/plugins/../../../etc/passwd"
+
+   # Test sensitive file protection
+   curl -I "https://your-domain.com/wp-config.php"
+   curl -I "https://your-domain.com/.env"
+   ```
+
+3. **Rate Limit Testing**:
+
+   ```bash
+   # Function to test rate limits
+   test_rate_limit() {
+       local endpoint=$1
+       local requests=$2
+       local delay=${3:-0}
+
+       echo "Testing rate limit for $endpoint"
+       for i in $(seq 1 $requests); do
+           curl -I "$endpoint" &>/dev/null
+           echo -n "."
+           sleep $delay
+       done
+       echo "Done!"
+
+       # Final request to check if rate limit is triggered
+       curl -I "$endpoint"
+   }
+
+   # Example usage:
+   # test_rate_limit "https://your-domain.com/api/" 100 0.1
+   # test_rate_limit "https://your-domain.com/wp-admin/" 50 0.2
+   ```
+
+4. **Bot Detection Testing**:
+   ```bash
+   # Test with different User-Agents
+   curl -I -A "Googlebot/2.1 (+http://www.google.com/bot.html)" https://your-domain.com/
+   curl -I -A "facebookexternalhit/1.1" https://your-domain.com/
+   curl -I -A "Mozilla/5.0 (compatible; Bingbot/2.0)" https://your-domain.com/
+   ```
+
+Remember to:
+
+- Replace `your-domain.com` with your actual domain
+- Adjust request numbers and delays based on your rate limits
+- Test from different IP addresses to verify IP-based limits
+- Run tests in a staging environment first
+- Monitor logs while testing to verify proper blocking
+
+# Maintenance Best Practices
+
+To keep our security implementation effective:
+
+1. **Monitor Logs**: Regularly check nginx error logs for blocked attempts
+2. **Update Rules**: Keep security rules current with new threat patterns
+3. **Test After Updates**: Verify security measures after WordPress core/plugin updates
+4. **Review Rate Limits**: Adjust rate limiting based on traffic patterns
+5. **Audit Bot Access**: Monitor and update bot detection patterns
+
+These security measures have proven effective in production, protecting millions of users while maintaining high performance. Remember to adapt these configurations to your specific needs and regularly test their effectiveness.
