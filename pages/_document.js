@@ -82,7 +82,7 @@ class MyDocument extends Document {
           <script
             defer
             data-domain="nadimtuhin.com"
-            src="http://null.app.nadimtuhin.com/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"
+            src="https://null.app.nadimtuhin.com/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"
           />
           <script
             dangerouslySetInnerHTML={{
