@@ -79,6 +79,16 @@ class MyDocument extends Document {
             data-key="Qc4+NaJlexE9AX6yp4SCUw"
             defer="true"
           />
+          <script
+            defer
+            data-domain="nadimtuhin.com"
+            src="http://null.app.nadimtuhin.com/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js"
+          />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }`,
+            }}
+          />
         </Head>
         <body className="bg-white text-black antialiased dark:bg-gray-900 dark:text-white">
           <Main />
