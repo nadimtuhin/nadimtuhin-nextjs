@@ -1,5 +1,11 @@
 const projectsData = [
   {
+    title: 'Free RunJS',
+    description: `A free, open-source alternative to RunJS that allows developers to quickly test JavaScript code snippets in a clean, web-based environment without any setup.`,
+    imgSrc: '/static/images/projects/free-runjs.png',
+    href: 'https://runjs.app.nadimtuhin.com/',
+  },
+  {
     title: 'Facebook Request Throttle WordPress Plugin',
     description: `A WordPress plugin designed to manage the influx of requests from Facebook's web crawler, ensuring server stability and optimal performance. It offers a simple yet effective solution to prevent potential server overloads.`,
     imgSrc: '/static/images/projects/facebook-throttle.png',
