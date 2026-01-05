@@ -77,7 +77,7 @@ class MyDocument extends Document {
           <script
             src="https://analytics.ahrefs.com/analytics.js"
             data-key="Qc4+NaJlexE9AX6yp4SCUw"
-            defer="true"
+            defer
           />
           <script
             defer
