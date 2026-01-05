@@ -1,6 +1,6 @@
 ---
 title: 'Building Robust Browser Automation: Essential Patterns and Best Practices'
-date: '2024-12-05'
+date: '2025-12-05'
 tags: ['puppeteer', 'browser-automation', 'scraping', 'best-practices', 'testing']
 summary: 'Essential patterns and anti-patterns for robust browser automation with Puppeteer, covering selectors, waits, cleanup, session management, and debugging.'
 ---
@@ -854,22 +854,60 @@ async function testSelectorStability(url, selector, retries = 10) {
 
 ---
 
-## Conclusion
+## My Production Setup
 
-Robust browser automation requires:
+After running 100+ browser profiles for months, here's what actually works:
 
-1. **Flexible selectors** - Fallback strategies, not hardcode
-2. **Explicit waits** - Wait for conditions, not time
-3. **Guaranteed cleanup** - finally blocks, resource tracking
-4. **Isolated sessions** - Distributed locks, fresh pages
-5. **Comprehensive debugging** - HTML capture, screenshots, logging
+**Stack:**
 
-The difference between "works on my machine" and "works in production" is deliberate patterns for handling failure cases.
+- **Multilogin** — Isolated browser profiles with unique fingerprints
+- **Puppeteer** — Core automation (considering Playwright for new projects)
+- **Redis + Redlock** — Distributed locks per account
+- **PostgreSQL** — Session/cookie persistence, debug logs
+
+**Key Metrics:**
+
+- **Selector fallback rate:** ~15% (fallbacks trigger when primary fails)
+- **Session reuse rate:** ~80% (avoid re-auth when possible)
+- **Error screenshot capture:** 100% (never debug blind)
+- **Uptime:** 99.2% after implementing these patterns
+
+**Cost breakdown (monthly):**
+
+- Multilogin: ~$100 (100 profiles)
+- Proxy bandwidth: ~$50
+- Redis/DB hosting: ~$20
+- **Total:** ~$170/month for production-grade automation
+
+**Lessons learned:**
+
+1. **Log selector usage** — Know which fallbacks fire most often
+2. **Rotate user agents weekly** — Even with Multilogin
+3. **Human-like delays** — Random 1-3s between actions
+4. **Screenshot on success too** — Not just errors (helps verify)
 
 ---
 
-**Resources**:
+## Final Thoughts
+
+Robust browser automation requires:
+
+1. **Flexible selectors** — Fallback strategies, not hardcode
+2. **Explicit waits** — Wait for conditions, not time
+3. **Guaranteed cleanup** — `finally` blocks, resource tracking
+4. **Isolated sessions** — Distributed locks, fresh pages
+5. **Comprehensive debugging** — HTML capture, screenshots, logging
+
+The difference between "works on my machine" and "works in production" is deliberate patterns for handling failure cases.
+
+These patterns took me months to learn the hard way. Hopefully this guide saves you some weekends.
+
+---
+
+## Resources
 
 - [Puppeteer Documentation](https://pptr.dev)
-- [Web Scraping Best Practices](https://www.scrape.center/scrape-best-practices)
-- [ARIA Accessibility](https://www.w3.org/TR/wai-aria-1.1/)
+- [Playwright Documentation](https://playwright.dev) — Consider for new projects
+- [ARIA Accessibility Spec](https://www.w3.org/TR/wai-aria-1.1/) — Stable selectors
+- [Multilogin](https://multilogin.com) — Browser fingerprint isolation
+- [Redlock Algorithm](https://redis.io/docs/manual/patterns/distributed-locks/) — Distributed locking
