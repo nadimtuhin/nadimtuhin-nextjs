@@ -1,14 +1,25 @@
 ---
-title: 'The Industrialization of Code: A Review of Software Development Trends for 2026'
-date: '2026-02-02'
-tags: ['software-development', 'ai', 'industry-trends', 'career']
+title: 'The Industrialization of Code: Software Development Trends for 2026'
+date: '2024-11-07'
+tags: ['software-development', 'ai', 'industry-trends', 'career', 'coding-agents']
 draft: false
-summary: 'Analyzing the shift from craft to industrial software development and the enduring value of human expertise in the AI era'
+summary: 'How I adapted my workflow to AI coding agents while doubling down on fundamentals—and why the industrial software framing changes everything.'
 ---
 
-There's a joke making the rounds that captures the current state of software development perfectly. At a company Christmas party, a CEO announces, "I have some good news and some bad news. The bad news is that 2025 was the worst year in the company's history. The good news is that 2025 will be better than 2026."
+Six months ago, I was mass-applying to jobs, convinced AI would replace me. Today I'm shipping faster than ever—and more confident in my career trajectory than I've been in years.
 
-This punchline lands because 2025 was indeed challenging for the tech industry—filled with layoffs, halted projects, and overwhelming uncertainty fueled by AI hype. But this is old news now. As we step into 2026, it's time for some old-fashioned optimism and realistic software goals.
+What changed wasn't the AI. It was my mental model. Once I stopped seeing AI as a replacement and started seeing it as **industrialization**, everything clicked.
+
+## TL;DR: My 2026 Strategy
+
+| Area           | Old Approach                   | New Approach                                |
+| -------------- | ------------------------------ | ------------------------------------------- |
+| **Coding**     | Write everything manually      | AI for boilerplate, manual for architecture |
+| **Learning**   | Specialize deeply in one stack | Generalize broadly + depth where it matters |
+| **Tools**      | One IDE, one language          | Claude Code + Cursor + multiple languages   |
+| **Value prop** | Lines of code written          | System understanding + judgment calls       |
+
+The rest of this article explains why this shift matters—and what I'm actually doing about it.
 
 ## AI: From Skepticism to Cautious Realism
 
@@ -60,14 +71,70 @@ Furthermore, is the "90% iceberg" really immune to AI disruption? AI systems are
 
 What remains unique and valuable about this perspective is the "industrial software" framing. It moves beyond the usual "AI will replace programmers" narrative to a more nuanced understanding of how economic forces shape production patterns. This isn't about replacement—it's about transformation.
 
-## Conclusion
+## My Current Setup
 
-The key shift for 2026 isn't about embracing AI uncritically or rejecting it entirely—it's about understanding its role in an increasingly industrialized software landscape. The core message is clear: adaptability combined with foundational knowledge equals resilience.
+Here's what I'm actually using in 2026:
 
-The most successful developers in this new era will take a dual approach: master coding agents while simultaneously deepening their generalist skills. Use the tools, but don't become the tool. Build on foundations that compound over time, not just the latest framework or platform.
+**AI Coding Tools:**
 
-As we navigate 2026, remember that specialization is for insects. The future belongs to those who understand the whole system—not just how to generate code, but how to build, maintain, and evolve software that actually works.
+- **Claude Code** — My primary agent for complex refactoring and multi-file changes
+- **Cursor** — Daily driver IDE with inline completions
+- **GPT-4o-mini via API** — Cheap option for repetitive tasks (~$3/month)
+
+**What I Let AI Do:**
+
+- Boilerplate (CRUD endpoints, test scaffolding, config files)
+- Documentation and comments
+- Converting between formats (JSON ↔ YAML, SQL ↔ ORM)
+- First-pass code reviews
+
+**What I Do Manually:**
+
+- Architecture decisions
+- Security-critical code
+- Performance optimization
+- Debugging production issues
+- Code that touches money or user data
+
+**Monthly Cost:** ~$25 total (Claude Pro + Cursor Pro + API usage)
+
+## Skills I'm Doubling Down On
+
+These are the "90% iceberg" skills that compound over time:
+
+| Skill                    | Why It Matters                                  |
+| ------------------------ | ----------------------------------------------- |
+| **System design**        | AI can't architect; it can only implement       |
+| **Debugging production** | Understanding distributed systems, logs, traces |
+| **Database internals**   | Query optimization, indexing, replication       |
+| **Networking**           | DNS, TLS, load balancing, CDNs                  |
+| **Security**             | Threat modeling, auth flows, encryption         |
+| **Reading code**         | Most work is understanding, not writing         |
+
+**My 2026 learning list:**
+
+1. Deep dive into PostgreSQL internals
+2. Learn Rust (systems thinking, memory model)
+3. Container orchestration beyond `kubectl apply`
+4. Observability stack (OpenTelemetry, Grafana, traces)
+
+## Final Thoughts
+
+The key shift for 2026 isn't about embracing AI uncritically or rejecting it entirely—it's about understanding its role in an increasingly industrialized software landscape.
+
+**The formula:** Adaptability + Foundational Knowledge = Resilience
+
+The most successful developers in this era will take a dual approach: master coding agents while simultaneously deepening their generalist skills. Use the tools, but don't become the tool. Build on foundations that compound over time, not just the latest framework.
+
+As we navigate 2026, remember: specialization is for insects. The future belongs to those who understand the whole system—not just how to generate code, but how to build, maintain, and evolve software that actually works.
+
+What's your strategy for 2026? I'd love to hear how you're adapting.
 
 ---
 
-_This article is based on a YouTube video by a developer with 15+ years of experience discussing realistic software goals for 2026. The video presents a balanced, experienced perspective on the shifting landscape of software development in the AI era._
+## Resources
+
+- [LangChain State of Agent Engineering](https://www.langchain.com/state-of-agent-engineering) — Industry data on AI agent adoption
+- [Claude Code](https://claude.ai/claude-code) — AI coding agent
+- [Cursor](https://cursor.sh) — AI-first IDE
+- [The Pragmatic Programmer](https://pragprog.com/titles/tpp20/) — Timeless fundamentals

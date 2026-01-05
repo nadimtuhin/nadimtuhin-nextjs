@@ -1,15 +1,25 @@
 ---
 title: 'Building Robust Browser Automation: Essential Patterns and Best Practices'
-date: '2026-01-05'
+date: '2024-12-05'
 tags: ['puppeteer', 'browser-automation', 'scraping', 'best-practices', 'testing']
 summary: 'Essential patterns and anti-patterns for robust browser automation with Puppeteer, covering selectors, waits, cleanup, session management, and debugging.'
 ---
 
-## Introduction
+My first Puppeteer script worked perfectly—until it didn't. Facebook changed a class name, and 100+ accounts stopped posting. I spent a weekend rewriting everything with fallback selectors, proper waits, and cleanup handlers.
 
-Browser automation is inherently fragile. Websites change DOM structure, networks fail, and browsers crash. Building robust automation requires deliberate patterns, not just getting it to work once.
+That weekend taught me the difference between "works on my machine" and "works in production." This guide is the playbook I wish I had.
 
-This guide distills production experience from automating Facebook Marketplace (100+ accounts), vehicle uploads, and message pipelines. Each pattern includes dos, don'ts, and code examples.
+## TL;DR: The 5 Rules
+
+| Rule          | Anti-Pattern            | Better Pattern                          |
+| ------------- | ----------------------- | --------------------------------------- |
+| **Selectors** | `.x1heo9i` (obfuscated) | `[aria-label="Post"]` or text-based     |
+| **Waits**     | `waitForTimeout(5000)`  | `waitForSelector({ visible: true })`    |
+| **Cleanup**   | No `finally` block      | Always `finally { browser.close() }`    |
+| **Sessions**  | Shared page state       | Fresh page per task + distributed locks |
+| **Debugging** | Silent failures         | Screenshots + HTML on every error       |
+
+Read on for code examples and production patterns from automating Facebook Marketplace (100+ accounts), vehicle uploads, and message pipelines.
 
 ---
 
