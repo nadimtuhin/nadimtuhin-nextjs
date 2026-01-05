@@ -1,0 +1,865 @@
+---
+title: 'Building Robust Browser Automation: Essential Patterns and Best Practices'
+date: '2026-01-05'
+tags: ['puppeteer', 'browser-automation', 'scraping', 'best-practices', 'testing']
+summary: 'Essential patterns and anti-patterns for robust browser automation with Puppeteer, covering selectors, waits, cleanup, session management, and debugging.'
+---
+
+## Introduction
+
+Browser automation is inherently fragile. Websites change DOM structure, networks fail, and browsers crash. Building robust automation requires deliberate patterns, not just getting it to work once.
+
+This guide distills production experience from automating Facebook Marketplace (100+ accounts), vehicle uploads, and message pipelines. Each pattern includes dos, don'ts, and code examples.
+
+---
+
+## Selector Strategies
+
+### CSS Selectors vs Text-Based Discovery
+
+**CSS Selectors:** Fast, reliable when structure is stable
+
+```javascript
+// ✅ GOOD - Stable semantic selector
+const title = await page.$eval('[role="heading"]', (el) => el.textContent)
+
+// ✅ GOOD - Test ID selector
+const button = await page.$eval('#submit-button', (el) => el.click())
+
+// ❌ BAD - Obfuscated class (Facebook does this)
+const title = await page.$eval('.x1heo9i .x1gj2m3', (el) => el.textContent)
+```
+
+**Text-Based Discovery:** Best for dynamic UIs (Facebook, Instagram)
+
+```javascript
+// ✅ GOOD - Find by visible text
+const buttons = await page.$$eval('button', (buttons) =>
+  buttons.filter((btn) => btn.textContent.includes('Post'))
+)
+
+// ❌ BAD - Brittle class name
+const button = await page.$('.x78zum5') // Changes weekly
+```
+
+### Pattern: Multiple Fallback Selectors
+
+Never rely on a single selector. Always provide alternatives:
+
+```javascript
+// Strategy: Try selectors in order of reliability
+const titleSelectors = [
+  '[role="heading"]', // Most reliable (ARIA)
+  'span[dir="auto"]', // Common Facebook pattern
+  '.marketplace-listing-title', // Class-based (brittle)
+  'h3', // Last resort
+]
+
+let title = null
+let usedSelector = null
+
+for (const selector of titleSelectors) {
+  const element = await page.$(selector)
+  if (element) {
+    title = await page.evaluate((el) => el.textContent, element)
+    usedSelector = selector
+    break
+  }
+}
+
+if (!title) {
+  // Graceful degradation - don't crash
+  console.warn('Title not found, tried:', titleSelectors.join(', '))
+  title = 'Unknown'
+}
+
+// Log for debugging selector effectiveness
+logSelectorUsage('title', usedSelector)
+```
+
+### Anti-Pattern: Hardcoded Classes
+
+```javascript
+// ❌ NEVER DO THIS - Facebook classes change daily
+const postButton = await page.$('.x1heo9i.x1gj2m3')
+
+// ✅ INSTEAD - Use ARIA attributes
+const postButton = await page.$('[aria-label="Post"]')
+
+// ✅ OR - Use text discovery
+const postButton = await page.$$eval('button', (buttons) =>
+  buttons.find((btn) => btn.textContent.includes('Post'))
+)
+```
+
+### Pattern: Wait for Element Before Interaction
+
+```javascript
+// ❌ WRONG - No wait, race condition
+await page.click('#submit')
+
+// ✅ CORRECT - Wait for visibility
+await page.waitForSelector('#submit', { visible: true, timeout: 10000 })
+await page.click('#submit')
+
+// ✅ BETTER - Wait and verify
+await page.waitForSelector('#submit', {
+  visible: true,
+  timeout: 10000,
+})
+const button = await page.$('#submit')
+if (!button) throw new Error('Submit button not visible')
+await button.click()
+```
+
+---
+
+## Wait Strategies
+
+### Explicit vs Implicit Waits
+
+**Explicit Waits:** Define what you're waiting for
+
+```javascript
+// ✅ GOOD - Explicit wait for specific condition
+await page.waitForSelector('[aria-label="Loading"]', {
+  hidden: true,
+  timeout: 30000,
+})
+
+// ✅ GOOD - Explicit wait for navigation
+await Promise.all([
+  page.waitForNavigation({ waitUntil: 'networkidle2' }),
+  page.click('a[href="/next"]'),
+])
+
+// ✅ GOOD - Wait for custom condition
+await page.waitForFunction(() => document.querySelector('[data-loaded]') !== null, {
+  timeout: 10000,
+})
+```
+
+**Implicit Waits:** Guess what the browser is doing (avoid)
+
+```javascript
+// ❌ BAD - Guessing delay
+await page.click('#submit')
+await new Promise((resolve) => setTimeout(resolve, 3000)) // Hope it's done
+
+// ❌ BAD - Fixed timeout regardless of state
+await page.waitForTimeout(5000) // Might wait too long or not enough
+
+// ❌ BAD - Assumed state
+await page.click('#submit')
+const nextButton = await page.$('#next') // Might not exist yet
+```
+
+### Pattern: Wait for Success Indicator
+
+Instead of waiting fixed time, wait for actual success:
+
+```javascript
+// ❌ BAD - Hope post completes in 10 seconds
+await page.click('#post')
+await page.waitForTimeout(10000)
+
+// ✅ GOOD - Wait for actual success message
+await page.click('#post')
+await page.waitForSelector('[aria-label="Success notification"]', {
+  visible: true,
+  timeout: 30000,
+})
+
+// ✅ BEST - Wait for success AND verify URL change
+const postClickPromise = page.click('#post')
+const successPromise = page.waitForSelector('[data-success="true"]')
+const urlPromise = page.waitForNavigation()
+
+await Promise.all([postClickPromise, successPromise, urlPromise])
+```
+
+### Pattern: Wait for Multiple Conditions
+
+Complex workflows often need multiple conditions:
+
+```javascript
+// Upload form scenario
+await Promise.all([
+  // Wait for upload progress to appear
+  page.waitForSelector('[aria-label="Uploading"]'),
+
+  // Wait for file input to be filled
+  page.waitForFunction(() => {
+    const input = document.querySelector('input[type="file"]')
+    return input && input.files.length > 0
+  }),
+
+  // Wait for submit button to be enabled
+  page.waitForSelector('button:not([disabled])'),
+])
+
+// All conditions must be met before continuing
+```
+
+### Anti-Pattern: waitForTimeout
+
+```javascript
+// ❌ AVOID - Unreliable magic numbers
+await page.click('#submit')
+await page.waitForTimeout(5000) // Why 5 seconds? What if it takes 6?
+
+// ❌ AVOID - No verification
+await page.type('#email', 'user@example.com')
+await page.waitForTimeout(1000)
+await page.type('#password', 'password') // Did email input work?
+```
+
+### Pattern: Exponential Backoff for Polling
+
+For conditions that take unpredictable time:
+
+```javascript
+async function waitForWithBackoff(
+  condition: () => boolean,
+  maxAttempts = 10,
+  baseDelay = 1000
+) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (await condition()) {
+        return true
+      }
+    } catch (error) {
+      // Condition might throw, try again
+    }
+
+    const delay = baseDelay * Math.pow(2, attempt - 1)
+    console.log(`Attempt ${attempt}/${maxAttempts}, retrying in ${delay}ms`)
+    await page.waitForTimeout(delay)
+  }
+
+  throw new Error(`Condition not met after ${maxAttempts} attempts`)
+}
+
+// Usage
+await waitForWithBackoff(
+  async () => {
+    const text = await page.$eval('[data-status]', el => el.textContent)
+    return text === 'complete'
+  },
+  15, // max attempts
+  1000 // 1 second base delay
+)
+```
+
+---
+
+## Resource Cleanup Patterns
+
+### Pattern: Always Cleanup in finally Block
+
+```javascript
+// ❌ WRONG - Browser might leak if exception thrown
+await page.goto('https://example.com')
+await page.click('#button')
+await browser.close() // Never reached if click fails
+
+// ✅ CORRECT - Guaranteed cleanup
+let browser
+try {
+  browser = await puppeteer.launch()
+  const page = await browser.newPage()
+  await page.goto('https://example.com')
+  await page.click('#button')
+} finally {
+  if (browser) {
+    await browser.close()
+  }
+}
+```
+
+### Pattern: Track and Close All Pages
+
+```javascript
+// Track opened pages
+const pages = []
+
+async function safeNavigate(url) {
+  const page = await browser.newPage()
+  pages.push(page)
+
+  try {
+    await page.goto(url)
+    return page
+  } catch (error) {
+    await page.close()
+    throw error
+  }
+}
+
+// Cleanup all pages
+async function cleanup() {
+  await Promise.all(pages.map((page) => page.close()))
+  pages.length = 0
+}
+
+// Usage
+try {
+  const page1 = await safeNavigate('https://example.com/page1')
+  const page2 = await safeNavigate('https://example.com/page2')
+  // Do work
+} finally {
+  await cleanup()
+}
+```
+
+### Pattern: Close Connections and Streams
+
+```javascript
+// ❌ WRONG - Streams not closed
+const stream = page.screenshot({ stream: true })
+// Use stream...
+// Stream stays open
+
+// ✅ CORRECT - Always close streams
+const stream = page.screenshot({ stream: true })
+try {
+  // Use stream
+  const chunks = []
+  for await (const chunk of stream) {
+    chunks.push(chunk)
+  }
+} finally {
+  await stream.destroy()
+}
+```
+
+### Pattern: Profile Cleanup for Multilogin
+
+```javascript
+async function scrapeWithProfile(profileId, folderId) {
+  let browser
+  let profile
+
+  try {
+    // Launch profile
+    profile = await startProfile(profileId, folderId)
+    browser = await puppeteer.connect({
+      browserURL: profile.browserUrl,
+    })
+
+    // Do work
+    const data = await scrapeData(browser)
+
+    return data
+  } catch (error) {
+    console.error('Scraping failed:', error)
+    throw error
+  } finally {
+    // Always cleanup
+    if (browser) {
+      try {
+        await browser.close()
+      } catch (closeError) {
+        console.error('Failed to close browser:', closeError)
+      }
+    }
+
+    if (profile) {
+      try {
+        await stopProfile(profileId)
+      } catch (stopError) {
+        console.error('Failed to stop profile:', stopError)
+      }
+    }
+  }
+}
+```
+
+### Anti-Pattern: Nested try-catch Without finally
+
+```javascript
+// ❌ WRONG - Cleanup might not run
+try {
+  const browser = await puppeteer.launch()
+  try {
+    const page = await browser.newPage()
+    await page.goto('https://example.com')
+  } catch (error) {
+    console.error('Page error:', error)
+  }
+  // browser.close() only runs if no exception
+  await browser.close()
+}
+
+// ✅ CORRECT - Single finally for all cleanup
+let browser
+let page
+try {
+  browser = await puppeteer.launch()
+  page = await browser.newPage()
+  await page.goto('https://example.com')
+} catch (error) {
+  console.error('Error:', error)
+} finally {
+  if (page) await page.close()
+  if (browser) await browser.close()
+}
+```
+
+---
+
+## Session Management
+
+### Pattern: Use Distributed Locks per Account
+
+```javascript
+import { redlock } from 'src/lib/redlock'
+
+async function processAccount(accountId, task) {
+  const lockKey = `facebook-account-${accountId}`
+  const lockTTL = 600000 // 10 minutes
+
+  let lock
+  try {
+    // Acquire lock
+    lock = await redlock.acquire([lockKey], lockTTL)
+
+    // Only one worker processes this account
+    const profile = await getProfile(accountId)
+    await task(profile)
+  } catch (error) {
+    if (error.message.includes('Lock')) {
+      console.warn(`Account ${accountId} is locked, skipping`)
+      return // Another worker is processing it
+    }
+    throw error
+  } finally {
+    // Always release lock
+    if (lock) {
+      await lock.release()
+    }
+  }
+}
+```
+
+### Pattern: Session Expiry and Renewal
+
+```javascript
+const SESSION_MAX_AGE = 30 * 60 * 1000 // 30 minutes
+
+async function getActiveSession(accountId) {
+  // Check cached session
+  const cached = await cache.get(`session:${accountId}`)
+  if (cached) {
+    const age = Date.now() - cached.createdAt
+    if (age < SESSION_MAX_AGE) {
+      return cached // Session still valid
+    }
+    // Session expired
+    console.log(`Session for ${accountId} expired`)
+    await cache.del(`session:${accountId}`)
+  }
+
+  // Create new session
+  const session = await createNewSession(accountId)
+  await cache.set(`session:${accountId}`, session, { ttl: SESSION_MAX_AGE })
+  return session
+}
+```
+
+### Pattern: Cookie Persistence
+
+```javascript
+// Save cookies after authentication
+async function authenticateAndSaveCookies(accountId) {
+  const browser = await puppeteer.launch()
+  const page = await browser.newPage()
+
+  // Authenticate
+  await page.goto('https://facebook.com/login')
+  await page.type('#email', account.email)
+  await page.type('#pass', account.password)
+  await page.click('#loginbutton')
+  await page.waitForNavigation()
+
+  // Save cookies
+  const cookies = await page.cookies()
+  await db.cookies.upsert({
+    accountId,
+    data: JSON.stringify(cookies),
+    updatedAt: new Date(),
+  })
+
+  await browser.close()
+}
+
+// Restore cookies on next use
+async function restoreCookies(accountId, page) {
+  const cookieData = await db.cookies.findUnique({
+    where: { accountId },
+  })
+
+  if (cookieData) {
+    const cookies = JSON.parse(cookieData.data)
+    await page.setCookie(...cookies)
+    await page.goto('https://facebook.com') // Cookies auto-applied
+  }
+}
+```
+
+### Anti-Pattern: Sharing Pages Between Tasks
+
+```javascript
+// ❌ WRONG - Page state leaks between tasks
+const page = await browser.newPage()
+
+async function task1() {
+  await page.goto('https://example.com/task1')
+  await page.click('#button')
+  // Page left at task1's state
+}
+
+async function task2() {
+  await page.goto('https://example.com/task2')
+  // Unexpected state from task1
+  // Cookies, localStorage, URL bar affected
+}
+
+// ✅ CORRECT - Fresh page per task
+async function taskWithFreshPage() {
+  const page = await browser.newPage()
+  try {
+    await page.goto('https://example.com/task1')
+    await page.click('#button')
+  } finally {
+    await page.close()
+  }
+}
+```
+
+---
+
+## Debugging Techniques
+
+### Pattern: Store Raw HTML for Debugging
+
+```javascript
+async function scrapeWithDebug(page, accountId) {
+  const startTime = Date.now()
+
+  try {
+    // Scrape data
+    const data = await page.evaluate(() => {
+      return {
+        title: document.querySelector('h1')?.textContent,
+        price: document.querySelector('[data-price]')?.textContent,
+      }
+    })
+
+    return data
+  } catch (error) {
+    // Capture full state when error occurs
+    const html = await page.content()
+    const screenshot = await page.screenshot({ fullPage: true })
+
+    // Store for debugging
+    await db.debugLog.create({
+      accountId,
+      error: error.message,
+      html,
+      screenshot,
+      timestamp: new Date(),
+      url: page.url(),
+      duration: Date.now() - startTime,
+    })
+
+    console.error('Scraping failed, debug ID:', debugLog.id)
+    throw error
+  }
+}
+```
+
+### Pattern: Screenshot on Every Step
+
+```javascript
+async function scrapeWithScreenshots(page, sessionId) {
+  let step = 0
+
+  const screenshot = async (name) => {
+    const path = `debug/${sessionId}-${step}-${name}.png`
+    await page.screenshot({ path, fullPage: true })
+    step++
+    console.log(`Screenshot: ${path}`)
+  }
+
+  try {
+    await page.goto('https://example.com')
+    await screenshot('initial')
+
+    await page.click('#button')
+    await screenshot('clicked-button')
+
+    await page.waitForSelector('#result')
+    await screenshot('result-loaded')
+
+    return data
+  } catch (error) {
+    await screenshot('error')
+    throw error
+  }
+}
+```
+
+### Pattern: Verbose Logging with Context
+
+```javascript
+class ScraperLogger {
+  constructor(accountId, sessionId) {
+    this.accountId = accountId
+    this.sessionId = sessionId
+  }
+
+  log(message, context = {}) {
+    console.log({
+      timestamp: new Date().toISOString(),
+      accountId: this.accountId,
+      sessionId: this.sessionId,
+      message,
+      ...context,
+    })
+  }
+
+  async logPageState(page, message) {
+    const state = await page.evaluate(() => ({
+      url: window.location.href,
+      title: document.title,
+      visible: document.visibilityState,
+    }))
+    this.log(message, { pageState: state })
+  }
+}
+
+// Usage
+const logger = new ScraperLogger(accountId, sessionId)
+
+await page.goto('https://example.com')
+logger.logPageState(page, 'Navigation complete')
+
+await page.click('#button')
+logger.log('Clicked button', { selector: '#button' })
+```
+
+### Pattern: Console Logging in Browser Context
+
+```javascript
+// Add console listeners before page loads
+page.on('console', (msg) => {
+  if (msg.type() === 'error') {
+    console.error('Browser console error:', msg.text())
+  }
+})
+
+page.on('pageerror', (error) => {
+  console.error('Page error:', error.toString())
+})
+
+// Navigate and capture JavaScript errors
+await page.goto('https://example.com')
+```
+
+### Pattern: Step-by-Step Execution for AI Agents
+
+```javascript
+async function executeAgentTask(agent, task) {
+  const startTime = Date.now()
+  const steps = []
+
+  // Log each step
+  const logStep = (step, tool, input, output) => {
+    steps.push({ step, tool, input, output, timestamp: Date.now() })
+    console.log(`Step ${step}: ${tool}(${JSON.stringify(input)})`)
+    console.log(`  → ${output}`)
+  }
+
+  try {
+    const result = await agent.executeTask(task, {
+      callbacks: [
+        {
+          handleToolStart: (tool, input) => {
+            logStep(steps.length + 1, tool.name, input)
+          },
+          handleToolEnd: (output) => {
+            if (steps.length > 0) {
+              steps[steps.length - 1].output = String(output)
+            }
+          },
+        },
+      ],
+    })
+
+    const duration = Date.now() - startTime
+
+    // Save execution trace
+    await db.agentExecution.create({
+      task,
+      steps,
+      duration,
+      success: result.success,
+      timestamp: new Date(),
+    })
+
+    return result
+  } catch (error) {
+    // Save failed execution
+    await db.agentExecution.create({
+      task,
+      steps,
+      error: error.message,
+      timestamp: new Date(),
+    })
+    throw error
+  }
+}
+```
+
+### Anti-Pattern: Silent Failures
+
+```javascript
+// ❌ WRONG - Errors swallowed
+async function scrape() {
+  try {
+    await page.goto('https://example.com')
+    const data = await page.evaluate(() => document.querySelector('h1').textContent)
+    return data
+  } catch (error) {
+    // Silent - no one knows it failed
+    return null
+  }
+}
+
+// ✅ CORRECT - Log and propagate
+async function scrape() {
+  try {
+    await page.goto('https://example.com')
+    const data = await page.evaluate(() => document.querySelector('h1').textContent)
+    return data
+  } catch (error) {
+    console.error('Scraping failed:', {
+      error: error.message,
+      url: page.url(),
+      stack: error.stack,
+    })
+    throw error // Propagate to caller
+  }
+}
+```
+
+---
+
+## Anti-Patterns Summary
+
+### Selector Anti-Patterns
+
+| Anti-Pattern                         | Why It's Bad               | Better Alternative                   |
+| ------------------------------------ | -------------------------- | ------------------------------------ |
+| Obfuscated classes (`.x1heo9i`)      | Changes weekly             | ARIA attributes (`[role="heading"]`) |
+| Hardcoded paths (`div > div > span`) | Brittle to DOM changes     | Flexible selectors with fallbacks    |
+| No wait before click                 | Race condition             | `waitForSelector({ visible: true })` |
+| Single selector strategy             | Fails if structure changes | Multiple fallback selectors          |
+
+### Wait Anti-Patterns
+
+| Anti-Pattern                   | Why It's Bad                  | Better Alternative                           |
+| ------------------------------ | ----------------------------- | -------------------------------------------- |
+| `waitForTimeout(5000)`         | Magic number, no verification | `waitForSelector()` with specific element    |
+| No wait after navigation       | Element might not exist       | `waitForNavigation()` or `waitForFunction()` |
+| Assume state (no verification) | Race conditions               | Wait for actual success indicator            |
+
+### Cleanup Anti-Patterns
+
+| Anti-Pattern     | Why It's Bad            | Better Alternative                   |
+| ---------------- | ----------------------- | ------------------------------------ |
+| No finally block | Resources leak on error | Always cleanup in `finally`          |
+| Nested try-catch | Cleanup might not run   | Single `finally` for all resources   |
+| Unclosed streams | Memory leaks            | `finally { await stream.destroy() }` |
+
+### Session Anti-Patterns
+
+| Anti-Pattern       | Why It's Bad                 | Better Alternative           |
+| ------------------ | ---------------------------- | ---------------------------- |
+| No account locking | Concurrent operations        | Distributed lock per account |
+| No session expiry  | Stale cookies cause failures | Check and renew sessions     |
+| Shared page state  | Leaks between tasks          | Fresh page per task          |
+
+---
+
+## Testing Patterns
+
+### Pattern: Visual Regression Tests
+
+```javascript
+import { diff } from 'pixelmatch'
+
+async function testVisual(page, testName) {
+  // Capture current screenshot
+  const screenshot = await page.screenshot()
+
+  // Compare with baseline
+  const baseline = await fs.readFile(`baselines/${testName}.png`)
+  const diff = diff(baseline, screenshot, { threshold: 0.1 })
+
+  if (diff) {
+    await fs.writeFile(`diffs/${testName}-diff.png`, diff)
+    throw new Error(`Visual regression detected for ${testName}`)
+  }
+}
+```
+
+### Pattern: Selector Stability Tests
+
+```javascript
+async function testSelectorStability(url, selector, retries = 10) {
+  const results = []
+
+  for (let i = 0; i < retries; i++) {
+    const browser = await puppeteer.launch()
+    const page = await browser.newPage()
+
+    const element = await page.$(selector)
+    results.push(!!element)
+
+    await browser.close()
+  }
+
+  const successRate = results.filter((r) => r).length / retries
+
+  if (successRate < 0.8) {
+    console.warn(`Selector ${selector} only ${successRate * 100}% reliable`)
+  }
+
+  return successRate
+}
+```
+
+---
+
+## Conclusion
+
+Robust browser automation requires:
+
+1. **Flexible selectors** - Fallback strategies, not hardcode
+2. **Explicit waits** - Wait for conditions, not time
+3. **Guaranteed cleanup** - finally blocks, resource tracking
+4. **Isolated sessions** - Distributed locks, fresh pages
+5. **Comprehensive debugging** - HTML capture, screenshots, logging
+
+The difference between "works on my machine" and "works in production" is deliberate patterns for handling failure cases.
+
+---
+
+**Resources**:
+
+- [Puppeteer Documentation](https://pptr.dev)
+- [Web Scraping Best Practices](https://www.scrape.center/scrape-best-practices)
+- [ARIA Accessibility](https://www.w3.org/TR/wai-aria-1.1/)
