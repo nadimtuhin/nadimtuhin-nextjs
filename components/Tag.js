@@ -3,7 +3,7 @@ import kebabCase from '@/lib/utils/kebabCase'
 
 const Tag = ({ text }) => {
   return (
-    <Link href={`/tags/${kebabCase(text)}`}>
+    <Link href={`/tags/${kebabCase(text)}`} legacyBehavior>
       <a className="group m-1 inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-4 py-1.5 text-sm font-medium text-primary-600 ring-1 ring-primary-200 transition-all hover:bg-primary-100 hover:text-primary-700 hover:ring-primary-300 dark:bg-primary-900/10 dark:text-primary-300 dark:ring-primary-400/20 dark:hover:bg-primary-900/20 dark:hover:text-primary-200 dark:hover:ring-primary-400/30">
         <svg
           xmlns="http://www.w3.org/2000/svg"
