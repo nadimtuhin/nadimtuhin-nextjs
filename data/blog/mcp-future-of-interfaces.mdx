@@ -1,27 +1,27 @@
 ---
-title: 'The End of Windows: Why MCP Is the Mac Revolution of Our Generation'
+title: 'From Clicks to Code: How MCP Is Rewriting the Rules of Human-Computer Interaction'
 date: '2026-01-06'
 tags: ['mcp', 'ai', 'interfaces', 'paradigm-shift', 'agentic-ai', 'future']
 draft: false
-summary: 'How the Model Context Protocol is doing to software interfaces what the mouse did for computing—and why traditional GUIs may become legacy systems within 5 years.'
+summary: 'The Model Context Protocol promised to be the USB-C for AI. Then it went sideways—and what emerged might be even more revolutionary.'
 ---
 
-I hate clicking through menus. Four clicks to attach a file. Six tabs to find a setting. A dozen screens to complete what should be a single thought.
+Imagine a world where you never click another dropdown menu. Where "find all overdue invoices and send reminders" just happens—no logging into three apps, no copy-pasting between tabs, no learning yet another interface designed by someone who isn't you.
 
-Last week, I asked Claude to "schedule a meeting with the team next Tuesday, check everyone's calendars, and book the conference room." It did—through MCP servers connecting to Google Calendar, Slack, and our room booking system. No windows. No clicks. No interfaces.
+Now imagine the infrastructure that makes this possible. That's what the Model Context Protocol (MCP) was supposed to be.
 
-That moment felt familiar. It felt like the first time I used a mouse.
+But here's the twist: MCP's original vision had a fatal flaw. And the fix might matter more than the protocol itself.
 
-## TL;DR: The Interface Revolution
+## TL;DR: The Interface Revolution (And Its Plot Twist)
 
 | Era | Interface | Key Innovation | What Died |
 |-----|-----------|----------------|-----------|
 | **1970s** | CLI → GUI | Mouse, windows, icons | Command memorization |
 | **1984** | Mainstream GUI | Apple Macintosh | DOS dominance |
 | **2007** | Desktop → Mobile | iPhone touch | Physical keyboards |
-| **2024-2026** | GUI → Agentic | MCP, natural language | Point-and-click navigation |
+| **2024-2026** | GUI → Agentic | MCP + Code Execution | Point-and-click navigation |
 
-The Model Context Protocol (MCP) isn't just another API standard. It's the "USB-C for AI"—and it's enabling a paradigm shift as significant as the graphical user interface itself.
+The Model Context Protocol isn't just another API standard. It's the "USB-C for AI"—but the real breakthrough is what happens when you combine it with code execution.
 
 ## What's Actually Happening
 
@@ -29,6 +29,8 @@ In November 2024, Anthropic quietly released MCP as an open standard. Within 12 
 
 - **March 2025**: OpenAI officially adopted MCP across all products
 - **May 2025**: Microsoft announced MCP support in Windows 11 at Build
+- **September 2025**: Cloudflare released "Code Mode"—a fundamental rethinking of how agents use MCP
+- **November 2025**: Anthropic published their code execution approach, claiming 98.7% token reduction
 - **December 2025**: Anthropic donated MCP to the Linux Foundation's Agentic AI Foundation (co-founded with OpenAI and Block)
 - **Today**: 10,000+ public MCP servers, with Stripe, GitHub, Notion, Salesforce, and SAP all shipping official integrations
 
@@ -64,15 +66,50 @@ After MCP:
 
 This isn't a minor efficiency gain. It's the difference between the early web's proprietary networks and the open internet built on TCP/IP and HTTP.
 
+## MCP's Dirty Secret: Context Bloat
+
+Here's what the hype cycle missed: MCP had a serious problem.
+
+MCP clients load all tool definitions upfront. With thousands of connected tools, agents process hundreds of thousands of tokens before reading a single user request. In Anthropic's own testing, a modest five-server setup with 58 tools consumed approximately **55,000 tokens** before the conversation even started.
+
+Half your context window—gone before you type a single instruction.
+
+Worse, as Cloudflare's engineering team discovered: **LLMs are actually bad at tool calling**. The special tokens used in tool calls are things LLMs have never seen in the wild. They're synthetic patterns with no real-world training data. The models struggle with them in ways they don't struggle with... code.
+
+## The Plot Twist: Code Mode
+
+The solution came from an unexpected direction. Instead of fixing tool calling, Cloudflare and Anthropic independently arrived at the same insight: **let agents write code instead**.
+
+**Cloudflare's Code Mode:**
+Convert MCP tools into TypeScript APIs. Instead of exposing tools directly, give the agent one tool: a code execution sandbox. The LLM writes TypeScript that calls the APIs. Code runs in V8 isolates—lightweight, sandboxed JavaScript environments that spin up in milliseconds.
+
+> "LLMs are better at writing code to call MCP than at calling MCP directly."
+
+**Anthropic's Approach:**
+Present MCP servers as code APIs through a filesystem structure. Each tool becomes a TypeScript file with defined interfaces. Agents explore directories, load only the definitions they need, and execute operations in a sandboxed environment.
+
+The result? **98.7% token reduction**—from 150,000 tokens to just 2,000 tokens in their benchmark.
+
+**Why This Works:**
+
+| Traditional MCP | Code Execution Mode |
+|----------------|---------------------|
+| Load all tool definitions upfront | Discover tools on-demand |
+| Every result passes through the model | Data processed in sandbox, only results returned |
+| Special tokens LLMs struggle with | TypeScript syntax LLMs know intimately |
+| Linear tool-by-tool execution | Loops and conditionals execute natively |
+
+This is the real paradigm shift. Not MCP alone—but MCP plus code execution.
+
 ## Why Traditional Interfaces Are Dying
 
-Here's the uncomfortable truth: the WIMP paradigm (Windows, Icons, Menus, Pointer) has dominated for 50 years. It was revolutionary when Xerox PARC invented it, and transformative when Apple brought it to consumers. But it's now a bottleneck.
+The WIMP paradigm (Windows, Icons, Menus, Pointer) has dominated for 50 years. It was revolutionary when Xerox PARC invented it, and transformative when Apple brought it to consumers. But it's now a bottleneck.
 
 **The Core Problem:**
 GUIs force users to learn software. You study the menu structure, memorize shortcuts, navigate hierarchies designed by someone who isn't you. The software dictates how you work.
 
 **The Agentic Alternative:**
-Natural language + MCP inverts this entirely. You state your intent. The AI figures out the execution. You say "find all overdue invoices and send reminders," and the agent orchestrates across your accounting software, email client, and CRM.
+Natural language + MCP + code execution inverts this entirely. You state your intent. The AI writes code to orchestrate the execution. You say "find all overdue invoices and send reminders," and the agent generates a script that queries your accounting software, filters the results, drafts personalized emails, and sends them—all without showing you a single screen.
 
 Former Google CEO Eric Schmidt put it bluntly: "User interfaces are largely going to go away."
 
@@ -128,48 +165,26 @@ Some predictions from the research:
 This isn't all utopia. There are real challenges:
 
 **Security:**
-In April 2025, researchers identified serious MCP vulnerabilities: tool poisoning, prompt injection, cross-server shadowing. When agents can take actions on your behalf, the attack surface expands dramatically.
+In April 2025, researchers identified serious MCP vulnerabilities: tool poisoning, prompt injection, cross-server shadowing. When agents can take actions on your behalf—and now execute arbitrary code—the attack surface expands dramatically. Cloudflare's V8 isolate approach helps, but this remains an active concern.
 
 **Reliability:**
-Carnegie Mellon research found that when testing agents in simulated companies, none could complete a majority of assigned tasks. Agents are impressive demos but inconsistent workers.
+Carnegie Mellon research found that when testing agents in simulated companies, none could complete a majority of assigned tasks. Agents are impressive demos but inconsistent workers. Code execution helps with efficiency, not accuracy.
 
 **The "Lowest Common Denominator" Problem:**
 Benedict Evans points out that MCP, as middleware abstracting various APIs, can't fully support all features of underlying tools. Standardization means compromise.
 
 **Determinism:**
-Enterprises need predictable software. AI is probabilistic. A CFO closing quarterly books needs the same inputs to yield the same outputs every time. Agents don't guarantee that.
+Enterprises need predictable software. AI is probabilistic. A CFO closing quarterly books needs the same inputs to yield the same outputs every time. Code-generating agents don't guarantee that.
 
-## My Current Setup
-
-Here's how I'm actually using MCP today:
-
-**MCP Servers I Run:**
-- **Filesystem** — Claude can read/write project files
-- **GitHub** — PR reviews, issue triage, code search
-- **Postgres** — Direct database queries for debugging
-- **Slack** — Message search and notifications
-
-**What I Use Agents For:**
-- "Summarize the last week of commits on this repo"
-- "Find all TODO comments and create GitHub issues for them"
-- "Check if any production queries are running longer than 5 seconds"
-- "Draft a response to this support ticket based on our docs"
-
-**What I Still Do Manually:**
-- Security-critical operations
-- Anything involving money or user data
-- Final decisions on architecture
-- Approving changes before they go live
-
-**The Key Principle:**
-Agents handle orchestration. I handle judgment. This is the division of labor that actually works today.
+**Operational Complexity:**
+Code execution requires "secure execution environments with appropriate sandboxing, resource limits, and monitoring," as Anthropic notes. This isn't plug-and-play infrastructure.
 
 ## What I'm Watching
 
 **Near-term (2026):**
 - W3C discussions on MCP-Identity (agent authentication)
-- More enterprise MCP servers (SAP, ServiceNow, Workday)
-- Security frameworks maturing
+- Code Mode adoption beyond Cloudflare
+- Security frameworks maturing around sandboxed execution
 
 **Medium-term (2027-2028):**
 - Agent-to-agent communication standards (Google's Agent2Agent protocol)
@@ -187,20 +202,21 @@ The Mac didn't kill the command line. It made it optional—a power user tool ra
 
 Traditional GUIs won't disappear overnight. But they're becoming the legacy interface—the thing you fall back to when the agent can't handle it, rather than the primary way you interact with software.
 
-MCP is the infrastructure enabling this shift. It's not exciting in itself—just like TCP/IP isn't exciting. But it's the foundation everything else will build on.
+MCP is the infrastructure enabling this shift. Code execution is what makes it practical. Together, they represent something genuinely new: not just AI that can use tools, but AI that can write programs to orchestrate tools—on the fly, in milliseconds, at a fraction of the cost.
 
-The question isn't whether this shift will happen. The adoption curve is already vertical. The question is whether you'll be building on top of it or trying to compete against it.
+The original MCP vision was ambitious. The code execution pivot made it viable.
 
-I know which side I'm betting on.
+That's how revolutions actually work. Not with the first idea, but with the correction that makes the first idea real.
 
 ---
 
 ## Resources
 
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/specification/2025-11-25) — Official spec
-- [Anthropic MCP Announcement](https://www.anthropic.com/news/model-context-protocol) — Original launch post
+- [Anthropic: Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) — The 98.7% efficiency breakthrough
+- [Cloudflare: Code Mode](https://blog.cloudflare.com/code-mode/) — The better way to use MCP
+- [The Evolution of AI Tool Use: MCP Went Sideways](https://waleedk.medium.com/the-evolution-of-ai-tool-use-mcp-went-sideways-8ef4b1268126) — Critical analysis of MCP's context bloat problem
 - [Thoughtworks: MCP's Impact on 2025](https://www.thoughtworks.com/en-us/insights/blog/generative-ai/model-context-protocol-mcp-impact-2025) — Industry analysis
 - [Microsoft: Securing MCP on Windows](https://blogs.windows.com/windowsexperience/2025/05/19/securing-the-model-context-protocol-building-a-safer-agentic-future-on-windows/) — Windows integration details
 - [The Agentic Operating System](https://www.seriousinsights.net/agentic-operating-system/) — The "death of Windows" thesis
 - [Salesforce: AI Agents as the New UI](https://www.salesforce.com/news/stories/ai-agents-user-interface/) — Enterprise perspective
-- [TechCrunch: Linux Foundation MCP Effort](https://techcrunch.com/2025/12/09/openai-anthropic-and-block-join-new-linux-foundation-effort-to-standardize-the-ai-agent-era/) — Governance update
