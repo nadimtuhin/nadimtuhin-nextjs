@@ -1,67 +1,202 @@
 ---
 title: 'Facebook Request Throttle: A Community-Driven WordPress Plugin'
 date: '2024-12-16'
-summary: 'The journey of how a simple WordPress plugin for a friend evolved into a community-powered solution for managing Facebook crawler traffic.'
-tags: ['wordpress', 'plugin', 'project']
+tags: ['wordpress', 'plugin', 'php', 'open-source', 'performance']
+draft: false
+summary: 'How a simple WordPress plugin for throttling Facebook crawler requests evolved into a community-powered solution—with real code, real problems, and real fixes.'
 ---
 
-# The Evolution of Facebook Request Throttle: A WordPress Plugin Born from Community Needs
+Your WordPress site is suddenly slow. You check the access logs and find thousands of requests from `facebookexternalhit`—Facebook's crawler is hammering your server every time someone shares a link. Sound familiar?
 
-What started as a simple solution for a friend's Facebook bot blocker has grown into a community-driven WordPress plugin that helps websites manage Facebook's crawler traffic effectively. Let me share the journey of how this plugin evolved through real-world use cases and community contributions.
+This is the story of how a quick fix for a friend turned into an open-source plugin that now helps WordPress sites manage aggressive crawler traffic.
 
-## The Beginning: A Friend's Need
+## TL;DR: What This Plugin Does
 
-It all began when a friend needed a solution for their Facebook bot blocker. The initial version was straightforward - just a basic throttling mechanism to prevent Facebook's crawler from overwhelming WordPress sites.
+| Problem | Solution |
+| --- | --- |
+| Facebook crawler overwhelming your server | Configurable request throttling |
+| No visibility into crawler behavior | Built-in logging system |
+| Images getting blocked unexpectedly | Smart request filtering |
+| Other aggressive bots | Multi-bot protection |
 
-## Growing Through Community Feedback
+## The Problem: Facebook's Aggressive Crawler
 
-The real evolution started when users began discovering the plugin on GitHub. Through issue reports and discussions, we identified new use cases and challenges that websites were facing with Facebook's crawler. Each problem reported helped expand the plugin's capabilities.
+When someone shares a URL on Facebook, their crawler (`facebookexternalhit/1.1`) fetches the page to generate a preview. Sounds harmless—until you realize:
 
-## Pull Requests and Community Contributions
+- Facebook re-crawls pages **frequently** to keep previews fresh
+- Multiple shares trigger multiple crawl requests
+- Viral content can mean hundreds of requests per minute
+- Shared hosting plans can't handle the load
 
-The open-source nature of the project attracted developers who contributed improvements through pull requests. These contributions helped enhance the plugin's functionality and reliability, making it more robust for various use cases.
+A friend's WordPress site was experiencing exactly this. Their shared hosting provider was threatening to suspend the account due to resource usage. The culprit? Facebook's crawler making requests faster than the server could handle.
 
-## Real User Problems Leading to Real Solutions
+## The Solution: Request Throttling
 
-One particularly interesting development came when a user reached out via Facebook message about images being blocked. This real-world problem led to an important fix that improved how the plugin handled image requests from Facebook's crawler.
+The core concept is simple: track when Facebook's crawler last accessed your site, and if it's too soon, respond with a temporary error instead of rendering the full page.
 
-## Adding Visibility with Logging
+Here's the essential logic:
 
-The same user later inquired about viewing logs to understand what was happening behind the scenes. This request led to the implementation of logging capabilities, giving administrators better visibility into how Facebook's crawler interacts with their sites.
+```php
+function check_facebook_throttle() {
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 
-## Expanding Bot Protection
+    // Detect Facebook's crawler
+    if (strpos($user_agent, 'facebookexternalhit') === false) {
+        return; // Not Facebook, proceed normally
+    }
 
-As the plugin matured, we expanded its scope to include protection against various other bots, making it a more comprehensive solution for WordPress sites dealing with crawler traffic.
+    $throttle_seconds = get_option('fb_throttle_seconds', 60);
+    $last_access = get_transient('fb_crawler_last_access');
 
-## Current Features
+    if ($last_access && (time() - $last_access) < $throttle_seconds) {
+        // Too soon—tell Facebook to retry later
+        header('HTTP/1.1 503 Service Temporarily Unavailable');
+        header('Retry-After: ' . $throttle_seconds);
+        exit;
+    }
 
-The plugin now offers:
+    // Record this access
+    set_transient('fb_crawler_last_access', time(), $throttle_seconds * 2);
+}
 
-- Configurable request throttling for Facebook's web crawler
-- 503 Service Temporarily Unavailable responses for too frequent requests
-- 429 Too Many Requests handling for access time recording issues
-- Comprehensive logging system for debugging
-- Protection against multiple types of bots
-- Simple configuration with customizable throttle timing
+add_action('init', 'check_facebook_throttle', 1);
+```
 
-## Technical Implementation
+The plugin uses WordPress's Transient API to store access times—no database tables needed, and it works with object caching if you have it.
 
-The plugin is built with:
+## Evolution Through Community Feedback
 
-- PHP for WordPress integration
-- Transient API for storing crawler access times
-- WordPress Hooks system for seamless integration
-- Custom logging mechanism for debugging
+### Issue #1: Images Getting Blocked
+
+A user reached out via Facebook message (ironic, right?) reporting that their images weren't appearing in Facebook previews. The problem: the plugin was blocking **all** Facebook crawler requests, including those fetching `og:image` assets.
+
+The fix required detecting image requests:
+
+```php
+function is_image_request() {
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    $image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+    foreach ($image_extensions as $ext) {
+        if (preg_match('/\.' . $ext . '$/i', $request_uri)) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+Now image requests bypass the throttle, ensuring previews display correctly.
+
+### Issue #2: "What's Actually Happening?"
+
+The same user asked how to see what the plugin was doing. Fair question—throttling is invisible by default. This led to adding a logging system:
+
+```php
+function log_throttle_event($action, $user_agent) {
+    if (!get_option('fb_throttle_logging', false)) {
+        return;
+    }
+
+    $log_entry = sprintf(
+        "[%s] %s | UA: %s | IP: %s\n",
+        date('Y-m-d H:i:s'),
+        $action,
+        substr($user_agent, 0, 100),
+        $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+    );
+
+    error_log($log_entry, 3, WP_CONTENT_DIR . '/fb-throttle.log');
+}
+```
+
+Administrators can now enable logging in the settings and review exactly which requests are being throttled.
+
+### Pull Request: Multi-Bot Support
+
+A contributor on GitHub pointed out that Facebook isn't the only aggressive crawler. Their PR expanded detection to include:
+
+- `facebookexternalhit` - Facebook link previews
+- `Facebot` - Facebook's general crawler
+- `LinkedInBot` - LinkedIn preview fetcher
+- `Twitterbot` - Twitter/X card generator
+- `WhatsApp` - WhatsApp link previews
+
+Each bot can be enabled/disabled independently in the settings.
+
+## Current Feature Set
+
+After months of community-driven development:
+
+**Throttling**
+- Configurable delay between requests (default: 60 seconds)
+- Per-bot throttle settings
+- 503 response with `Retry-After` header (crawlers respect this)
+- 429 fallback for edge cases
+
+**Visibility**
+- Optional logging to `wp-content/fb-throttle.log`
+- Log rotation to prevent disk bloat
+- Request details: timestamp, user agent, IP, action taken
+
+**Flexibility**
+- Whitelist specific paths (e.g., `/wp-admin/`)
+- Image request bypass
+- WP-CLI commands for cache clearing
+
+## Installation
+
+1. Download from [GitHub](https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin)
+2. Upload to `wp-content/plugins/`
+3. Activate in WordPress admin
+4. Configure under **Settings → FB Throttle**
+
+Or use WP-CLI:
+
+```bash
+wp plugin install https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin/archive/main.zip --activate
+```
+
+## When to Use This Plugin
+
+**Good fit:**
+- Shared hosting with limited resources
+- Sites that frequently go viral on social media
+- WordPress installations seeing high crawler traffic in access logs
+
+**Not needed:**
+- Sites on dedicated servers with resources to spare
+- Low-traffic blogs with occasional social shares
+- If you're already using Cloudflare or similar with bot management
+
+## Lessons Learned
+
+Building this plugin taught me a few things about open-source maintenance:
+
+1. **Real users find real bugs.** The image-blocking issue would never have surfaced in my testing—I don't share enough content on Facebook.
+
+2. **Logging is not optional.** Users need to see what's happening. "Trust me, it's working" isn't good enough.
+
+3. **Start simple, expand based on need.** The original plugin was 30 lines. Now it's ~300, but every addition came from a real use case.
 
 ## Get Involved
 
-- Try the plugin: [WordPress Plugin Directory](https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin)
-- Join discussions: [Discord Community](https://discord.gg/7eaP6rcb)
-- Contribute: [GitHub Repository](https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin)
-- Report issues or suggest improvements
+The plugin is MIT-licensed and welcomes contributions:
 
-## Looking Forward
+- **Report issues:** Found a bug or edge case? [Open an issue](https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin/issues)
+- **Contribute code:** PRs welcome for new features or fixes
+- **Join the discussion:** [Discord Community](https://discord.gg/7eaP6rcb)
 
-The plugin continues to evolve based on user needs and community feedback. It's available under the MIT license, making it freely available for anyone to use, modify, and improve.
+## Final Thoughts
 
-This journey exemplifies how open-source projects can grow organically through community involvement, real user needs, and collaborative problem-solving. What started as a simple solution for a friend has become a useful tool for the broader WordPress community.
+What started as a 30-minute fix for a friend has become a useful tool for the WordPress community. The plugin now handles edge cases I never anticipated, thanks entirely to users who took the time to report problems and developers who contributed fixes.
+
+If you're seeing `facebookexternalhit` flooding your access logs, give it a try. And if you find a bug—please tell me. That's how this thing keeps getting better.
+
+---
+
+## Resources
+
+- [GitHub Repository](https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin)
+- [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) - Test how Facebook sees your URLs
+- [WordPress Transients API](https://developer.wordpress.org/apis/transients/) - How the plugin stores access times
