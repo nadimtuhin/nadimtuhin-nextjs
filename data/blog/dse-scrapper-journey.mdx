@@ -2,6 +2,7 @@
 title: 'DSE Scrapper: A Journey into Bangladesh Stock Market Data'
 date: '2024-11-07'
 tags: ['stock-market', 'php', 'scraping', 'project', 'open-source']
+draft: false
 summary: 'The story of building a web scrapper for Dhaka Stock Exchange (DSE) data, overcoming technical challenges, and learning valuable lessons about persistence and project management.'
 ---
 
@@ -18,7 +19,7 @@ The project started with a grand vision: to build a complete stock market platfo
 
 As a PHP developer heavily influenced by Laravel patterns, I approached this project with the intention of creating a robust and maintainable codebase.
 
-## Technical Challenges
+## The Challenge
 
 The primary challenge was accessing data from the Dhaka Stock Exchange. Web scraping seemed like the obvious solution, but it came with its own set of obstacles:
 
@@ -34,22 +35,22 @@ The key breakthrough came when I discovered that adding a referrer header to the
 curl_setopt($ch, CURLOPT_REFERER, 'http://www.dse.com.bd');
 ```
 
-## Learning Experience
+## Code Architecture
+
+The project followed Laravel-inspired patterns:
+
+- **Clean separation of concerns** - Controllers, services, and models
+- **Service-based architecture** - Reusable scraping components
+- **Robust error handling** - Graceful failure recovery
+- **Configurable parameters** - Flexible scraping options
+
+## Learning Outcomes
 
 While the project didn't reach its full potential due to work commitments and time constraints, it provided valuable lessons:
 
 - **Technical Skills**: Deep dive into web scraping techniques and data processing
 - **Project Management**: Understanding the importance of scope management
 - **Persistence**: The value of solving technical challenges step by step
-
-## Code Architecture
-
-The project followed Laravel-inspired patterns:
-
-- Clean separation of concerns
-- Service-based architecture
-- Robust error handling
-- Configurable scraping parameters
 
 ## Impact and Legacy
 
@@ -59,10 +60,15 @@ Though the project remained incomplete, it served as:
 - A template for future web scraping projects
 - A reminder that even unfinished projects contribute to our growth as developers
 
-## Conclusion
+## Final Thoughts
 
-The DSE Scrapper project, while not reaching its ambitious goals, represents an important chapter in my development journey. It showcases how enthusiasm for a domain (stock market) combined with technical skills can lead to interesting projects, and how even "incomplete" projects can provide valuable learning experiences.
+The DSE Scrapper project, while not reaching its ambitious goals, represents an important chapter in my development journey. It showcases how enthusiasm for a domain combined with technical skills can lead to interesting projects, and how even "incomplete" projects can provide valuable learning experiences.
+
+The project remains open-source for anyone interested in building upon it or learning from its approach to web scraping.
 
 ---
 
-_The project remains open-source and available on [GitHub](https://github.com/nadimtuhin/dse-scrapper) for anyone interested in building upon it or learning from its approach to web scraping._
+## Resources
+
+- [GitHub Repository](https://github.com/nadimtuhin/dse-scrapper)
+- [Dhaka Stock Exchange](https://www.dse.com.bd/)
