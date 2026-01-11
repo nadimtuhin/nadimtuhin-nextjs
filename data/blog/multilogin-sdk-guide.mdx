@@ -50,6 +50,37 @@ The magic? **I didn't write a single selector.** The AI figured it out.
 | One script per website                      | Same agent, any website                |
 | Hours debugging selectors                   | Minutes tweaking prompts               |
 
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│          TRADITIONAL AUTOMATION        │      AI-POWERED AUTOMATION      │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                        │                                 │
+│    Website Update                      │    Website Update               │
+│         │                              │         │                       │
+│         ▼                              │         ▼                       │
+│  ┌─────────────────┐                   │  ┌─────────────────┐            │
+│  │ Button renamed  │                   │  │ Button renamed  │            │
+│  │ #submit-v3 →    │                   │  │ #submit-v3 →    │            │
+│  │ #post-btn       │                   │  │ #post-btn       │            │
+│  └────────┬────────┘                   │  └────────┬────────┘            │
+│           │                            │           │                     │
+│           ▼                            │           ▼                     │
+│  ┌─────────────────┐                   │  ┌─────────────────┐            │
+│  │  ❌ FAILS       │                   │  │ AI finds button │            │
+│  │  Element not    │                   │  │ by text/ARIA    │            │
+│  │  found          │                   │  │ attributes      │            │
+│  └────────┬────────┘                   │  └────────┬────────┘            │
+│           │                            │           │                     │
+│           ▼                            │           ▼                     │
+│  ┌─────────────────┐                   │  ┌─────────────────┐            │
+│  │ Developer       │                   │  │  ✅ SUCCESS     │            │
+│  │ spends weekend  │                   │  │  Adapts to new  │            │
+│  │ fixing selectors│                   │  │  DOM structure  │            │
+│  └─────────────────┘                   │  └─────────────────┘            │
+│                                        │                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Architecture
 
 ```

@@ -22,6 +22,56 @@ This is the complete workflow I've refined across 60+ open-source projects.
 
 Total time from push to production: **~8 minutes** (including automated testing and security scanning).
 
+## Pipeline Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CI/CD PIPELINE FLOW                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  LOCAL                    GITHUB                         PRODUCTION
+────────────────────────────────────────────────────────────────────────────────
+
+ ┌──────────┐   push    ┌───────────────────────────────────────┐
+ │  Code    │──────────▶│            GitHub Actions             │
+ │  Change  │           │                                       │
+ └──────────┘           │  ┌─────────────────────────────────┐  │
+      │                 │  │     Matrix Testing (parallel)   │  │
+      │                 │  │  ┌────────┬────────┬────────┐   │  │
+      ▼                 │  │  │Node 18 │Node 20 │Node 22 │   │  │
+ ┌──────────┐           │  │  │  LTS   │  LTS   │Current │   │  │
+ │  Husky   │           │  │  └───┬────┴───┬────┴───┬────┘   │  │
+ │Pre-commit│           │  │      └────────┼────────┘        │  │
+ │  Hooks   │           │  │               ▼                 │  │
+ └──────────┘           │  │         lint → build → test     │  │
+      │                 │  └─────────────────────────────────┘  │
+      │                 │                  │                    │
+      ▼                 │                  ▼ (parallel)         │
+ ┌──────────┐           │  ┌─────────────────────────────────┐  │
+ │  Lint    │           │  │      Security Scan (Trivy)      │  │
+ │Typecheck │           │  │   CRITICAL/HIGH → Block PR      │  │
+ └──────────┘           │  └─────────────────────────────────┘  │
+      │                 │                  │                    │
+      │ pass            │                  ▼ (parallel)         │
+      ▼                 │  ┌─────────────────────────────────┐  │
+ ┌──────────┐           │  │    Claude AI Code Review        │  │
+ │  Commit  │           │  │   • Code quality  • Security    │  │
+ └──────────┘           │  └─────────────────────────────────┘  │
+                        └───────────────────┬───────────────────┘
+                                            │ all checks pass
+                                            ▼
+                        ┌───────────────────────────────────────┐
+                        │              PR Merge                 │
+                        └───────────────────┬───────────────────┘
+                                            │
+                                            ▼
+                        ┌───────────────────────────────────────┐    ┌──────────┐
+                        │          Vercel Deployment            │───▶│Production│
+                        │    • Build + optimize                 │    │   Live   │
+                        │    • Zero-downtime deploy             │    └──────────┘
+                        └───────────────────────────────────────┘
+```
+
 ---
 
 ## The Git Workflow

@@ -69,6 +69,11 @@ module.exports = withBundleAnalyzer({
   async redirects() {
     return [
       {
+        source: '/blog/securing-pathao-dot-com',
+        destination: '/blog/wordpress-nginx-security-guide',
+        permanent: true,
+      },
+      {
         source: '/linkedin',
         destination: 'https://www.linkedin.com/in/nadimtuhin/',
         permanent: true,

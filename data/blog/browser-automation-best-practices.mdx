@@ -27,6 +27,49 @@ Read on for code examples and production patterns from automating Facebook Marke
 
 ## Selector Strategies
 
+### Selector Decision Flowchart
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  SELECTOR STRATEGY FLOW                      │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────────┐
+              │ Has ARIA attribute?         │
+              │ [role], [aria-label], etc.  │
+              └─────────────────────────────┘
+                     │              │
+                    YES            NO
+                     │              │
+                     ▼              ▼
+         ┌──────────────────┐  ┌─────────────────────┐
+         │ Use ARIA selector│  │ Has test ID?        │
+         │ [role="heading"] │  │ [data-testid], #id  │
+         └──────────────────┘  └─────────────────────┘
+                                    │           │
+                                   YES         NO
+                                    │           │
+                                    ▼           ▼
+                        ┌────────────────┐ ┌──────────────────┐
+                        │ Use test ID    │ │ Has stable text? │
+                        │ #submit-button │ └──────────────────┘
+                        └────────────────┘      │          │
+                                               YES        NO
+                                                │          │
+                                                ▼          ▼
+                                   ┌────────────────┐ ┌─────────────────┐
+                                   │ Use text-based │ │ Use semantic tag│
+                                   │ $$eval + find  │ │ h1, button, etc │
+                                   └────────────────┘ └─────────────────┘
+                                                              │
+                                                              ▼
+                                              ┌───────────────────────────┐
+                                              │ ALWAYS add fallback       │
+                                              │ selectors as backup       │
+                                              └───────────────────────────┘
+```
+
 ### CSS Selectors vs Text-Based Discovery
 
 **CSS Selectors:** Fast, reliable when structure is stable
@@ -425,6 +468,46 @@ try {
 ---
 
 ## Session Management
+
+### Session Management Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     SESSION MANAGEMENT ARCHITECTURE                      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    Worker 1              Worker 2              Worker 3
+        │                     │                     │
+        ▼                     ▼                     ▼
+┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+│ Process       │     │ Process       │     │ Process       │
+│ Account A     │     │ Account B     │     │ Account A     │
+└───────┬───────┘     └───────┬───────┘     └───────┬───────┘
+        │                     │                     │
+        └──────────┬──────────┴──────────┬──────────┘
+                   │                     │
+                   ▼                     ▼
+        ┌─────────────────────────────────────────┐
+        │              REDIS REDLOCK              │
+        │  ┌─────────────┐  ┌─────────────────┐   │
+        │  │ Lock: A     │  │ Lock: B         │   │
+        │  │ TTL: 10min  │  │ TTL: 10min      │   │
+        │  │ Owner: W1   │  │ Owner: W2       │   │
+        │  └─────────────┘  └─────────────────┘   │
+        │                                         │
+        │  Worker 3 BLOCKED (Account A locked)    │
+        └─────────────────────────────────────────┘
+                            │
+                            ▼
+        ┌─────────────────────────────────────────┐
+        │           Browser Profiles              │
+        │  ┌────────────┐  ┌────────────┐         │
+        │  │ Profile A  │  │ Profile B  │         │
+        │  │ Cookies ✓  │  │ Cookies ✓  │         │
+        │  │ Storage ✓  │  │ Storage ✓  │         │
+        │  └────────────┘  └────────────┘         │
+        └─────────────────────────────────────────┘
+```
 
 ### Pattern: Use Distributed Locks per Account
 
