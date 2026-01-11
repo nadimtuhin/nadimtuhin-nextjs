@@ -19,6 +19,8 @@ That weekend taught me the difference between "works on my machine" and "works i
 | **Sessions**  | Shared page state       | Fresh page per task + distributed locks |
 | **Debugging** | Silent failures         | Screenshots + HTML on every error       |
 
+> **Note:** This guide uses Puppeteer examples. For new projects, consider [Playwright](https://playwright.dev) which has better defaults and API design. Also note that `headless: true` is deprecated in recent Puppeteer versions—use `headless: 'new'` for the new headless mode.
+
 Read on for code examples and production patterns from automating Facebook Marketplace (100+ accounts), vehicle uploads, and message pipelines.
 
 ---
@@ -43,10 +45,20 @@ const title = await page.$eval('.x1heo9i .x1gj2m3', (el) => el.textContent)
 **Text-Based Discovery:** Best for dynamic UIs (Facebook, Instagram)
 
 ```javascript
-// ✅ GOOD - Find by visible text
-const buttons = await page.$$eval('button', (buttons) =>
-  buttons.filter((btn) => btn.textContent.includes('Post'))
+// ✅ GOOD - Find by visible text (runs in browser context, returns serializable data)
+const postButtonExists = await page.$$eval('button', (buttons) =>
+  buttons.some((btn) => btn.textContent.includes('Post'))
 )
+
+// ✅ GOOD - Click element by text content
+const clicked = await page.$$eval('button', (buttons) => {
+  const btn = buttons.find((b) => b.textContent.includes('Post'))
+  if (btn) {
+    btn.click()
+    return true
+  }
+  return false
+})
 
 // ❌ BAD - Brittle class name
 const button = await page.$('.x78zum5') // Changes weekly
@@ -96,10 +108,15 @@ const postButton = await page.$('.x1heo9i.x1gj2m3')
 // ✅ INSTEAD - Use ARIA attributes
 const postButton = await page.$('[aria-label="Post"]')
 
-// ✅ OR - Use text discovery
-const postButton = await page.$$eval('button', (buttons) =>
-  buttons.find((btn) => btn.textContent.includes('Post'))
-)
+// ✅ OR - Use text discovery (evaluate in browser context)
+const clicked = await page.$$eval('button', (buttons) => {
+  const btn = buttons.find((b) => b.textContent.includes('Post'))
+  if (btn) {
+    btn.click()
+    return true
+  }
+  return false
+})
 ```
 
 ### Pattern: Wait for Element Before Interaction
@@ -112,14 +129,12 @@ await page.click('#submit')
 await page.waitForSelector('#submit', { visible: true, timeout: 10000 })
 await page.click('#submit')
 
-// ✅ BETTER - Wait and verify
+// ✅ BETTER - Wait and click directly (waitForSelector already confirms existence)
 await page.waitForSelector('#submit', {
   visible: true,
   timeout: 10000,
 })
-const button = await page.$('#submit')
-if (!button) throw new Error('Submit button not visible')
-await button.click()
+await page.click('#submit')
 ```
 
 ---
@@ -137,11 +152,9 @@ await page.waitForSelector('[aria-label="Loading"]', {
   timeout: 30000,
 })
 
-// ✅ GOOD - Explicit wait for navigation
-await Promise.all([
-  page.waitForNavigation({ waitUntil: 'networkidle2' }),
-  page.click('a[href="/next"]'),
-])
+// ✅ GOOD - Explicit wait for navigation (modern pattern)
+await page.click('a[href="/next"]')
+await page.waitForNavigation({ waitUntil: 'networkidle2' })
 
 // ✅ GOOD - Wait for custom condition
 await page.waitForFunction(() => document.querySelector('[data-loaded]') !== null, {
@@ -229,15 +242,12 @@ await page.type('#password', 'password') // Did email input work?
 For conditions that take unpredictable time:
 
 ```javascript
-async function waitForWithBackoff(
-  condition: () => boolean,
-  maxAttempts = 10,
-  baseDelay = 1000
-) {
+async function waitForWithBackoff(page, condition, maxAttempts = 10, baseDelay = 1000) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      if (await condition()) {
-        return true
+      const result = await condition()
+      if (result) {
+        return result
       }
     } catch (error) {
       // Condition might throw, try again
@@ -245,17 +255,18 @@ async function waitForWithBackoff(
 
     const delay = baseDelay * Math.pow(2, attempt - 1)
     console.log(`Attempt ${attempt}/${maxAttempts}, retrying in ${delay}ms`)
-    await page.waitForTimeout(delay)
+    await new Promise((resolve) => setTimeout(resolve, delay))
   }
 
   throw new Error(`Condition not met after ${maxAttempts} attempts`)
 }
 
 // Usage
-await waitForWithBackoff(
+const result = await waitForWithBackoff(
+  page,
   async () => {
-    const text = await page.$eval('[data-status]', el => el.textContent)
-    return text === 'complete'
+    const text = await page.$eval('[data-status]', (el) => el.textContent)
+    return text === 'complete' ? text : null
   },
   15, // max attempts
   1000 // 1 second base delay
@@ -326,22 +337,16 @@ try {
 ### Pattern: Close Connections and Streams
 
 ```javascript
-// ❌ WRONG - Streams not closed
-const stream = page.screenshot({ stream: true })
-// Use stream...
-// Stream stays open
+// ❌ WRONG - Buffer not handled properly
+const screenshot = await page.screenshot()
+// screenshot is a Buffer, use it directly
 
-// ✅ CORRECT - Always close streams
-const stream = page.screenshot({ stream: true })
-try {
-  // Use stream
-  const chunks = []
-  for await (const chunk of stream) {
-    chunks.push(chunk)
-  }
-} finally {
-  await stream.destroy()
-}
+// ✅ CORRECT - Save screenshot to file
+await page.screenshot({ path: 'screenshot.png', fullPage: true })
+
+// ✅ CORRECT - Use buffer directly
+const screenshotBuffer = await page.screenshot({ fullPage: true })
+await fs.writeFile('screenshot.png', screenshotBuffer)
 ```
 
 ### Pattern: Profile Cleanup for Multilogin
@@ -809,19 +814,36 @@ async function scrape() {
 ### Pattern: Visual Regression Tests
 
 ```javascript
-import { diff } from 'pixelmatch'
+import pixelmatch from 'pixelmatch'
+import { PNG } from 'pngjs'
+import fs from 'fs'
 
 async function testVisual(page, testName) {
   // Capture current screenshot
-  const screenshot = await page.screenshot()
+  const screenshotBuffer = await page.screenshot()
+  const screenshot = PNG.sync.read(screenshotBuffer)
 
-  // Compare with baseline
-  const baseline = await fs.readFile(`baselines/${testName}.png`)
-  const diff = diff(baseline, screenshot, { threshold: 0.1 })
+  // Load baseline
+  const baselinePath = `baselines/${testName}.png`
+  if (!fs.existsSync(baselinePath)) {
+    // Create baseline if it doesn't exist
+    fs.writeFileSync(baselinePath, screenshotBuffer)
+    console.log(`Created baseline: ${baselinePath}`)
+    return
+  }
 
-  if (diff) {
-    await fs.writeFile(`diffs/${testName}-diff.png`, diff)
-    throw new Error(`Visual regression detected for ${testName}`)
+  const baseline = PNG.sync.read(fs.readFileSync(baselinePath))
+
+  // Compare images
+  const { width, height } = baseline
+  const diffImage = new PNG({ width, height })
+  const numDiffPixels = pixelmatch(baseline.data, screenshot.data, diffImage.data, width, height, {
+    threshold: 0.1,
+  })
+
+  if (numDiffPixels > 0) {
+    fs.writeFileSync(`diffs/${testName}-diff.png`, PNG.sync.write(diffImage))
+    throw new Error(`Visual regression detected for ${testName}: ${numDiffPixels} pixels differ`)
   }
 }
 ```
