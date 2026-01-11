@@ -1,0 +1,272 @@
+---
+title: 'How ytranscript Works: Reverse-Engineering YouTube Captions'
+date: '2026-01-11'
+tags: ['youtube', 'reverse-engineering', 'api', 'typescript', 'open-source']
+draft: false
+summary: 'A technical deep-dive into how ytranscript fetches YouTube transcripts using the Innertube API - no API keys required, just curl.'
+---
+
+In my [previous post](/blog/ytranscript-mcp-youtube-transcripts), I introduced ytranscript - a tool I built to fetch YouTube transcripts for my knowledge pipeline. Today, I want to go deeper into _how_ it works.
+
+No third-party services. No API keys. Just YouTube's own internal API.
+
+## Important Caveats
+
+Before we dive in, some honest disclaimers:
+
+**This uses an undocumented API.** YouTube's Innertube API is internal and can change without notice. I've seen YouTube break similar tools before by changing endpoints, requiring authentication, or adding bot detection. If ytranscript stops working, that's why.
+
+**Terms of Service.** Accessing undocumented APIs may violate YouTube's ToS. This tool is for personal use, research, and educational purposes. Use responsibly.
+
+**Known limitations:**
+
+- Age-restricted videos require authentication cookies (not supported)
+- Private/unlisted videos require authentication
+- Region-blocked content may fail based on your IP
+- Heavy usage can get your IP rate-limited (HTTP 429) or blocked
+- Auto-translation tracks are not currently supported
+
+With that said, let's look under the hood.
+
+## The Innertube API
+
+YouTube's web player uses an internal API called **Innertube** to fetch video data. This is the same API that powers youtube.com - it's just not publicly documented.
+
+The key endpoint:
+
+```
+POST https://www.youtube.com/youtubei/v1/player
+```
+
+This returns video metadata including available caption tracks with their URLs.
+
+## The Two-Step Process
+
+Fetching a transcript requires two API calls:
+
+### Step 1: Get Caption Track URLs
+
+```bash
+curl -X POST 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false' \
+  -H 'Content-Type: application/json' \
+  -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' \
+  -d '{
+    "context": {
+      "client": {
+        "clientName": "WEB",
+        "clientVersion": "2.20240101.00.00"
+      }
+    },
+    "videoId": "dQw4w9WgXcQ"
+  }'
+```
+
+The response includes a `captions` object:
+
+```json
+{
+  "captions": {
+    "playerCaptionsTracklistRenderer": {
+      "captionTracks": [
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?...",
+          "languageCode": "en",
+          "kind": "asr",
+          "name": { "simpleText": "English (auto-generated)" }
+        }
+      ]
+    }
+  }
+}
+```
+
+Key fields:
+
+- `baseUrl` - The URL to fetch the actual caption content
+- `languageCode` - Language code (en, es, fr, etc.)
+- `kind: "asr"` - Indicates auto-generated captions (manual captions don't have this field)
+
+### Step 2: Fetch the Caption Track
+
+Take the `baseUrl` from step 1 and append `&fmt=json3` to get structured JSON. Note the User-Agent header is required here too:
+
+```bash
+curl -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' \
+  "https://www.youtube.com/api/timedtext?...&fmt=json3"
+```
+
+Response:
+
+```json
+{
+  "events": [
+    {
+      "tStartMs": 0,
+      "dDurationMs": 5000,
+      "segs": [{ "utf8": "Hello " }, { "utf8": "world" }]
+    },
+    {
+      "tStartMs": 5000,
+      "dDurationMs": 3000,
+      "segs": [{ "utf8": "Welcome to the video" }]
+    }
+  ]
+}
+```
+
+Each event has:
+
+- `tStartMs` - Start time in milliseconds
+- `dDurationMs` - Duration in milliseconds
+- `segs` - Array of text segments (UTF-8 encoded)
+
+Note: Some events don't have `segs` (they're timing markers or style events) - these get filtered out.
+
+## One-Liner with jq
+
+Here's a complete script to fetch a transcript with error handling:
+
+```bash
+VIDEO_ID="dQw4w9WgXcQ"
+
+# Get caption URL (returns empty if no captions)
+CAPTION_URL=$(curl -s -X POST \
+  'https://www.youtube.com/youtubei/v1/player?prettyPrint=false' \
+  -H 'Content-Type: application/json' \
+  -H 'User-Agent: Mozilla/5.0' \
+  -d "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20240101.00.00\"}},\"videoId\":\"$VIDEO_ID\"}" \
+  | jq -r '.captions.playerCaptionsTracklistRenderer.captionTracks[0].baseUrl // empty')
+
+if [ -n "$CAPTION_URL" ]; then
+  curl -s -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' \
+    "$CAPTION_URL&fmt=json3" \
+    | jq -r '.events[] | select(.segs) | [.segs[].utf8] | join("")'
+else
+  echo "No captions available"
+fi
+```
+
+## Why It Won't Work in Browsers
+
+If you're thinking "I'll just call this from my frontend" - you can't. YouTube's API doesn't include CORS headers:
+
+```
+Access-Control-Allow-Origin: (missing)
+```
+
+Browsers will block the request before it even completes.
+
+### Workarounds
+
+**1. Proxy through your backend**
+
+```typescript
+import express from 'express'
+import { fetchTranscript } from '@nadimtuhin/ytranscript'
+
+const app = express()
+
+// Validate video ID format (11 chars, alphanumeric + dash/underscore)
+const isValidVideoId = (id: string) => /^[a-zA-Z0-9_-]{11}$/.test(id)
+
+app.get('/api/transcript/:videoId', async (req, res) => {
+  const { videoId } = req.params
+
+  if (!isValidVideoId(videoId)) {
+    return res.status(400).json({ error: 'Invalid video ID' })
+  }
+
+  try {
+    const transcript = await fetchTranscript(videoId)
+    res.json(transcript)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    // Map errors to appropriate status codes
+    const status = message.includes('No captions') ? 404 : 500
+    res.status(status).json({ error: message })
+  }
+})
+
+app.listen(3000)
+```
+
+**2. Serverless function** - Deploy on Vercel, Netlify, or AWS Lambda.
+
+**3. Browser extension** - Content scripts can make same-origin requests when injected into youtube.com.
+
+**4. Just use the CLI** - For automation, keep it server-side:
+
+```bash
+ytranscript get VIDEO_ID --format json
+```
+
+## The Actual Return Type
+
+The real `fetchTranscript` function returns a `Transcript` object:
+
+```typescript
+interface Transcript {
+  videoId: string
+  text: string // Full transcript as single string
+  segments: Array<{
+    // Individual caption segments
+    text: string
+    start: number // Seconds (converted from milliseconds)
+    duration: number // Seconds
+  }>
+  language: string // e.g., "en"
+  isAutoGenerated: boolean
+}
+```
+
+The full implementation in [`fetcher.ts`](https://github.com/nadimtuhin/ytranscript/blob/main/src/lib/fetcher.ts) adds language selection, timeout handling, and output formatting.
+
+## Language Selection Logic
+
+ytranscript prioritizes caption tracks like this:
+
+1. Check each preferred language in order
+2. For each language, prefer manual captions over auto-generated
+3. If nothing matches, fall back to the first available track
+
+```typescript
+// Prefer Spanish, fall back to English
+fetchTranscript('VIDEO_ID', { languages: ['es', 'en'] })
+```
+
+Language codes use prefix matching via `startsWith()` - so `en` matches `en`, `en-US`, `en-GB`, etc.
+
+## Rate Limiting
+
+YouTube will rate-limit aggressive requests. ytranscript includes built-in throttling for bulk operations:
+
+```bash
+ytranscript bulk \
+  --file videos.txt \
+  --concurrency 4 \
+  --pause-after 10 \
+  --pause-ms 5000
+```
+
+This fetches 4 videos in parallel, pauses for 5 seconds after every 10 requests.
+
+If you get HTTP 429 errors, back off significantly (wait 30-60 seconds, then use exponential backoff). Continued hammering can get your IP blocked for hours or days.
+
+## Implementation Notes
+
+A few quirks I discovered while building this:
+
+1. **User-Agent is required** - YouTube rejects requests without a browser-like User-Agent
+2. **Client version matters (for now)** - The version string doesn't need to be current, but YouTube could start enforcing this
+3. **JSON3 format** - The `fmt=json3` parameter returns structured JSON; without it you get XML
+4. **It will break eventually** - This is an undocumented API. When YouTube changes it, the library needs updating
+
+## Links
+
+- **GitHub**: [github.com/nadimtuhin/ytranscript](https://github.com/nadimtuhin/ytranscript)
+- **npm**: [@nadimtuhin/ytranscript](https://www.npmjs.com/package/@nadimtuhin/ytranscript)
+- **Technical Docs**: [HOW_IT_WORKS.md](https://github.com/nadimtuhin/ytranscript/blob/main/HOW_IT_WORKS.md)
+
+---
+
+_Sometimes the best API is the one that was never meant to be public. Just don't be surprised when it disappears._
