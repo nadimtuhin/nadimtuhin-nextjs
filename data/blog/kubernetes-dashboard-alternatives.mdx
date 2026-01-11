@@ -15,7 +15,7 @@ But here's the good news: the Kubernetes dashboard ecosystem has exploded with a
 | Use Case                  | Tool         | Why                                     |
 | ------------------------- | ------------ | --------------------------------------- |
 | **Terminal power users**  | K9s          | Fastest, most efficient, works over SSH |
-| **Teams needing web UI**  | Headlamp     | CNCF project, Microsoft-backed, modern  |
+| **Teams needing web UI**  | Headlamp     | CNCF Sandbox project, modern UI         |
 | **Mobile monitoring**     | Kubenav      | Only option with iOS/Android apps       |
 | **Full DevOps lifecycle** | Devtron      | Built-in CI/CD, security scanning       |
 | **Vim users**             | kubectl.nvim | Never leave your editor                 |
@@ -35,6 +35,22 @@ Kubernetes dashboards generally fall into two categories: Graphical User Interfa
 ### K9s: The Terminal Lover's Dashboard
 
 [K9s](https://k9scli.io/) takes a unique approach by providing a terminal-based UI for Kubernetes. Despite being terminal-based, it offers a surprisingly rich and interactive experience.
+
+**Installation:**
+
+```bash
+# macOS
+brew install derailed/k9s/k9s
+
+# Linux (via snap)
+sudo snap install k9s
+
+# Windows (via scoop)
+scoop install k9s
+
+# Or download from GitHub releases
+# https://github.com/derailed/k9s/releases
+```
 
 **Key Features:**
 
@@ -80,6 +96,8 @@ Kubernetes dashboards generally fall into two categories: Graphical User Interfa
 - Requires familiarity with Vim keybindings
 - Limited visualization capabilities
 
+## Desktop Applications
+
 ### JET Pilot: Simplified Desktop Management
 
 [JET Pilot](https://github.com/unxsist/jet-pilot) is an open-source Kubernetes desktop client that focuses on less clutter, speed and good looks.
@@ -107,7 +125,21 @@ Kubernetes dashboards generally fall into two categories: Graphical User Interfa
 
 ### Headlamp: The Modern Web-Based Alternative
 
-[Headlamp](https://headlamp.dev/) is a relatively new entrant developed by Kinvolk (now part of Microsoft). It's a modern, web-based Kubernetes dashboard with a clean interface and powerful features.
+[Headlamp](https://headlamp.dev/) is a CNCF Sandbox project that provides a modern, web-based Kubernetes dashboard. Originally created by Kinvolk (acquired by Microsoft in 2021), it's now maintained by the CNCF community.
+
+**Installation:**
+
+```bash
+# Helm install (in-cluster)
+helm repo add headlamp https://headlamp-k8s.github.io/headlamp/
+helm install headlamp headlamp/headlamp
+
+# Desktop app (macOS)
+brew install --cask headlamp
+
+# Desktop app (Linux)
+flatpak install flathub io.kinvolk.Headlamp
+```
 
 **Key Features:**
 
@@ -119,8 +151,8 @@ Kubernetes dashboards generally fall into two categories: Graphical User Interfa
 
 **Pros:**
 
-- Fully open-source
-- Active development with Microsoft backing
+- Fully open-source (CNCF Sandbox)
+- Active development with community support
 - Excellent resource visualization
 - Can be deployed in-cluster or run locally
 
@@ -324,7 +356,7 @@ Kubernetes dashboards generally fall into two categories: Graphical User Interfa
 | Interface             | Desktop GUI          | Terminal  | Terminal/Vim | Desktop GUI | Web      | Web            | Web             | Mobile/Desktop/Web | Web      | Web        | Web           | Web      | Web           |
 | Open Source           | Partially (OpenLens) | Yes       | Yes          | Yes         | Yes      | Yes (CE)       | Yes             | Yes                | Yes      | Yes        | Yes           | Yes      | Yes           |
 | Multi-cluster         | Yes                  | Yes       | Yes          | Yes         | Yes      | Yes            | Limited         | Yes                | Yes      | Yes        | Yes           | Yes      | Yes           |
-| Resource Monitoring   | Advanced             | Basic     | Limited      | Basic       | Basic    | Basic          | Basic           | Basic              | Advanced | Basic      | Basic         | Basic    | Basic         |
+| Resource Monitoring   | Advanced             | Good      | Limited      | Basic       | Basic    | Basic          | Basic           | Basic              | Advanced | Basic      | Basic         | Basic    | Basic         |
 | RBAC Support          | Yes                  | Yes       | Limited      | Yes         | Yes      | Yes            | Yes             | Yes                | Yes      | Yes        | Yes           | Advanced | Yes           |
 | Plugin System         | Yes                  | Yes       | Via Vim      | No          | Yes      | Limited        | No              | No                 | Yes      | No         | Yes           | No       | No            |
 | Terminal Access       | Yes                  | Native    | Native       | Native      | Yes      | Yes            | Yes             | Yes                | Yes      | Yes        | Yes           | Yes      | Yes           |
