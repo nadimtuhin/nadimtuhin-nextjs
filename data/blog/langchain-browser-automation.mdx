@@ -99,13 +99,14 @@ Website (via CDP)
 ```typescript
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { createReactAgent } from '@langchain/langgraph/prebuilt'
+import type { CompiledStateGraph } from '@langchain/langgraph'
 import type { Page } from 'puppeteer-core'
 
 export class BrowserAgent {
   private page: Page
   private llm: BaseChatModel
   private tools: LangChainTool[]
-  private agent: AgentExecutor
+  private agent: CompiledStateGraph<any, any> // LangGraph returns CompiledStateGraph, not AgentExecutor
 
   constructor(config: { page: Page; browserUrl: string; model: BaseChatModel }) {
     this.page = config.page
@@ -349,7 +350,7 @@ export class BrowserAgent {
   private page: Page
   private llm: BaseChatModel
   private tools: LangChainTool[]
-  private agent: AgentExecutor
+  private agent: CompiledStateGraph<any, any> // LangGraph returns CompiledStateGraph, not AgentExecutor
   private maxSteps: number
 
   constructor(config: { page: Page; browserUrl: string; model: BaseChatModel; maxSteps?: number }) {
@@ -374,40 +375,56 @@ export class BrowserAgent {
       const startTime = Date.now()
       const steps: Step[] = []
 
-      // Execute agent
-      const result = await this.agent.invoke(
+      // Execute agent with streaming for step tracking
+      // Note: LangGraph uses streaming, not callback handlers
+      const stream = await this.agent.stream(
         {
           messages: [{ role: 'user', content: task }],
         },
         {
           recursionLimit: this.maxSteps,
-          // Track steps for debugging
-          callbacks: [
-            {
-              handleToolStart: (tool, input, _runId) => {
+        }
+      )
+
+      // Process stream events to track steps
+      let lastResult: any
+      for await (const event of stream) {
+        lastResult = event
+
+        // Track tool calls from agent messages
+        if (event.agent?.messages) {
+          for (const msg of event.agent.messages) {
+            if (msg.tool_calls?.length > 0) {
+              for (const toolCall of msg.tool_calls) {
                 const step = steps.length + 1
                 if (options.verbose) {
-                  console.log(`Step ${step}: ${tool.name}(${JSON.stringify(input)})`)
+                  console.log(`Step ${step}: ${toolCall.name}(${JSON.stringify(toolCall.args)})`)
                 }
                 steps.push({
                   step,
-                  tool: tool.name,
-                  input,
+                  tool: toolCall.name,
+                  input: toolCall.args,
                   timestamp: new Date().toISOString(),
                 })
-              },
-              handleToolEnd: (output) => {
-                if (steps.length > 0) {
-                  steps[steps.length - 1].output = String(output)
-                }
-                if (options.verbose) {
-                  console.log(`  → ${output}`)
-                }
-              },
-            },
-          ],
+              }
+            }
+          }
         }
-      )
+
+        // Track tool outputs
+        if (event.tools?.messages) {
+          for (const msg of event.tools.messages) {
+            if (steps.length > 0 && !steps[steps.length - 1].output) {
+              steps[steps.length - 1].output = String(msg.content)
+              if (options.verbose) {
+                console.log(`  → ${msg.content}`)
+              }
+            }
+          }
+        }
+      }
+
+      const result = lastResult
 
       const duration = Date.now() - startTime
 
@@ -435,19 +452,28 @@ export class BrowserAgent {
 
 ### Key Features
 
-**1. Step Tracking**
+**1. Step Tracking with Streaming**
+
+LangGraph uses streaming instead of callbacks for tracking:
 
 ```typescript
-callbacks: [
-  {
-    handleToolStart: (tool, input) => {
-      console.log(`Step ${step}: ${tool.name}`)
-    },
-    handleToolEnd: (output) => {
-      console.log(`  → ${output}`)
-    },
-  },
-]
+// Stream events to track tool calls and outputs
+const stream = await this.agent.stream({ messages })
+
+for await (const event of stream) {
+  // agent events contain tool_calls
+  if (event.agent?.messages) {
+    for (const msg of event.agent.messages) {
+      if (msg.tool_calls) {
+        console.log(`Tool: ${msg.tool_calls[0].name}`)
+      }
+    }
+  }
+  // tools events contain results
+  if (event.tools?.messages) {
+    console.log(`Result: ${event.tools.messages[0].content}`)
+  }
+}
 ```
 
 **2. Recursion Limit**
@@ -581,26 +607,33 @@ const result = await agent.executeTask(context + '\n\n' + task)
 
 ### 4. Step Validation
 
-Validate agent's reasoning:
+Validate agent's reasoning using stream events:
 
 ```typescript
-callbacks: [
-  {
-    handleToolStart: (tool, input) => {
-      // Prevent dangerous actions
-      if (tool.name === 'navigate' && input.url.includes('delete')) {
-        throw new Error('Navigation to delete URL prevented')
-      }
+const stream = await this.agent.stream({ messages })
+const auditLog: AuditEntry[] = []
 
-      // Log for audit
-      auditLog.push({
-        timestamp: new Date(),
-        tool: tool.name,
-        input,
-      })
-    },
-  },
-]
+for await (const event of stream) {
+  if (event.agent?.messages) {
+    for (const msg of event.agent.messages) {
+      if (msg.tool_calls) {
+        for (const toolCall of msg.tool_calls) {
+          // Prevent dangerous actions
+          if (toolCall.name === 'navigate' && toolCall.args.url?.includes('delete')) {
+            throw new Error('Navigation to delete URL prevented')
+          }
+
+          // Log for audit
+          auditLog.push({
+            timestamp: new Date(),
+            tool: toolCall.name,
+            input: toolCall.args,
+          })
+        }
+      }
+    }
+  }
+}
 ```
 
 ## Real-World Example: Facebook Status Posting
