@@ -90,7 +90,7 @@ The magic? **I didn't write a single selector.** The AI figured it out.
 Install required packages:
 
 ```bash
-npm install puppeteer-core axios md5
+npm install puppeteer-core axios
 npm install @langchain/core @langchain/langgraph @langchain/openai
 ```
 
@@ -116,13 +116,13 @@ AI_MODEL=gpt-4o-mini
 
 ```typescript
 import axios from 'axios'
-import md5 from 'md5'
 
 // Multilogin API client helper
+// Note: Multilogin uses standard HTTPS - passwords are sent securely over TLS
 async function getMultiloginToken(email: string, password: string): Promise<string> {
   const response = await axios.post('https://api.multilogin.com/user/signin', {
     email,
-    password: md5(password),
+    password, // Sent securely over HTTPS
   })
   return response.data.data.token
 }
@@ -133,6 +133,8 @@ const token = await getMultiloginToken(
   process.env.MULTILOGIN_PASSWORD!
 )
 ```
+
+> **Security Note**: Always use environment variables for credentials. Never commit passwords to source control.
 
 ## Step 2: Launch Browser Profile
 
@@ -265,6 +267,61 @@ const tools = [
       return `URL: ${page.url()}, Title: ${await page.title()}`
     },
   }),
+
+  // Find elements by text content (essential for AI-driven automation)
+  new DynamicStructuredTool({
+    name: 'find_elements_by_text',
+    description: 'Find elements containing specific text. Returns selectors for matching elements.',
+    schema: z.object({
+      text: z.string().describe('Text to search for'),
+      tag: z.string().optional().describe('Optional HTML tag to filter (e.g., "button", "div")'),
+    }),
+    func: async ({ text, tag }) => {
+      const elements = await page.evaluate(
+        ({ searchText, tagFilter }) => {
+          const xpath = tagFilter
+            ? `//${tagFilter}[contains(text(), "${searchText}")]`
+            : `//*[contains(text(), "${searchText}")]`
+          const result = document.evaluate(
+            xpath,
+            document,
+            null,
+            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+            null
+          )
+          const found: string[] = []
+          for (let i = 0; i < Math.min(result.snapshotLength, 5); i++) {
+            const el = result.snapshotItem(i) as HTMLElement
+            found.push(
+              `${el.tagName.toLowerCase()}${el.className ? '.' + el.className.split(' ').join('.') : ''}`
+            )
+          }
+          return found
+        },
+        { searchText: text, tagFilter: tag }
+      )
+      return elements.length > 0
+        ? `Found ${elements.length} elements: ${elements.join(', ')}`
+        : `No elements found containing "${text}"`
+    },
+  }),
+
+  // Force click (for stubborn elements like Facebook's Post button)
+  new DynamicStructuredTool({
+    name: 'force_click',
+    description: 'Force click an element using JavaScript. Use when regular click fails.',
+    schema: z.object({
+      selector: z.string().describe('CSS selector to click'),
+    }),
+    func: async ({ selector }) => {
+      await page.waitForSelector(selector, { visible: true, timeout: 10000 })
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel) as HTMLElement
+        if (el) el.click()
+      }, selector)
+      return `Force-clicked ${selector}`
+    },
+  }),
 ]
 ```
 
@@ -389,7 +446,6 @@ Putting it all together:
 ```typescript
 import puppeteer, { Browser, Page } from 'puppeteer-core'
 import axios from 'axios'
-import md5 from 'md5'
 import { ChatOpenAI } from '@langchain/openai'
 import { DynamicStructuredTool } from '@langchain/core/tools'
 import { createReactAgent } from '@langchain/langgraph/prebuilt'
@@ -399,7 +455,7 @@ import { z } from 'zod'
 async function getToken(email: string, password: string): Promise<string> {
   const response = await axios.post('https://api.multilogin.com/user/signin', {
     email,
-    password: md5(password),
+    password, // Sent securely over HTTPS
   })
   return response.data.data.token
 }
