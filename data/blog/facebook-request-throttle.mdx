@@ -12,12 +12,12 @@ This is the story of how a quick fix for a friend turned into an open-source plu
 
 ## TL;DR: What This Plugin Does
 
-| Problem | Solution |
-| --- | --- |
+| Problem                                   | Solution                        |
+| ----------------------------------------- | ------------------------------- |
 | Facebook crawler overwhelming your server | Configurable request throttling |
-| No visibility into crawler behavior | Built-in logging system |
-| Images getting blocked unexpectedly | Smart request filtering |
-| Other aggressive bots | Multi-bot protection |
+| No visibility into crawler behavior       | Built-in logging system         |
+| Images getting blocked unexpectedly       | Smart request filtering         |
+| Other aggressive bots                     | Multi-bot protection            |
 
 ## The Problem: Facebook's Aggressive Crawler
 
@@ -45,24 +45,33 @@ function check_facebook_throttle() {
         return; // Not Facebook, proceed normally
     }
 
+    // Get the URL-specific cache key to allow multiple pages to be crawled
+    $request_uri = $_SERVER['REQUEST_URI'] ?? '/';
+    $cache_key = 'fb_throttle_' . md5($request_uri);
+
     $throttle_seconds = get_option('fb_throttle_seconds', 60);
-    $last_access = get_transient('fb_crawler_last_access');
+    $last_access = get_transient($cache_key);
 
     if ($last_access && (time() - $last_access) < $throttle_seconds) {
         // Too soon—tell Facebook to retry later
-        header('HTTP/1.1 503 Service Temporarily Unavailable');
+        // Use 429 (Too Many Requests) which is the proper rate-limiting status
+        header('HTTP/1.1 429 Too Many Requests');
         header('Retry-After: ' . $throttle_seconds);
         exit;
     }
 
     // Record this access
-    set_transient('fb_crawler_last_access', time(), $throttle_seconds * 2);
+    set_transient($cache_key, time(), $throttle_seconds * 2);
 }
 
 add_action('init', 'check_facebook_throttle', 1);
 ```
 
-The plugin uses WordPress's Transient API to store access times—no database tables needed, and it works with object caching if you have it.
+**Key implementation notes:**
+
+- Uses per-URL cache keys so crawling page A doesn't block page B
+- Uses HTTP 429 (Too Many Requests) instead of 503, which is the standard rate-limiting response
+- The plugin uses WordPress's Transient API to store access times—no database tables needed, and it works with object caching if you have it
 
 ## Evolution Through Community Feedback
 
@@ -75,14 +84,15 @@ The fix required detecting image requests:
 ```php
 function is_image_request() {
     $request_uri = $_SERVER['REQUEST_URI'] ?? '';
-    $image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
-    foreach ($image_extensions as $ext) {
-        if (preg_match('/\.' . $ext . '$/i', $request_uri)) {
-            return true;
-        }
-    }
-    return false;
+    // Parse the path without query strings
+    $path = parse_url($request_uri, PHP_URL_PATH) ?? '';
+
+    // Check for image extensions
+    $image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+    return in_array($extension, $image_extensions, true);
 }
 ```
 
@@ -98,19 +108,29 @@ function log_throttle_event($action, $user_agent) {
         return;
     }
 
+    // Sanitize user agent to prevent log injection
+    $safe_user_agent = preg_replace('/[^\x20-\x7E]/', '', $user_agent);
+    $safe_user_agent = substr($safe_user_agent, 0, 100);
+
+    // Get real IP (check forwarded headers for proxies/CDNs)
+    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    // Take only the first IP if multiple are present
+    $ip = explode(',', $ip)[0];
+    $ip = filter_var(trim($ip), FILTER_VALIDATE_IP) ?: 'invalid';
+
     $log_entry = sprintf(
         "[%s] %s | UA: %s | IP: %s\n",
-        date('Y-m-d H:i:s'),
+        gmdate('Y-m-d H:i:s'),
         $action,
-        substr($user_agent, 0, 100),
-        $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+        $safe_user_agent,
+        $ip
     );
 
     error_log($log_entry, 3, WP_CONTENT_DIR . '/fb-throttle.log');
 }
 ```
 
-Administrators can now enable logging in the settings and review exactly which requests are being throttled.
+**Security note:** User agents and IPs are sanitized before logging to prevent log injection attacks.
 
 ### Pull Request: Multi-Bot Support
 
@@ -129,17 +149,20 @@ Each bot can be enabled/disabled independently in the settings.
 After months of community-driven development:
 
 **Throttling**
+
 - Configurable delay between requests (default: 60 seconds)
+- Per-URL throttling (crawling page A doesn't block page B)
 - Per-bot throttle settings
-- 503 response with `Retry-After` header (crawlers respect this)
-- 429 fallback for edge cases
+- HTTP 429 response with `Retry-After` header (the standard rate-limiting response)
 
 **Visibility**
+
 - Optional logging to `wp-content/fb-throttle.log`
 - Log rotation to prevent disk bloat
 - Request details: timestamp, user agent, IP, action taken
 
 **Flexibility**
+
 - Whitelist specific paths (e.g., `/wp-admin/`)
 - Image request bypass
 - WP-CLI commands for cache clearing
@@ -151,20 +174,26 @@ After months of community-driven development:
 3. Activate in WordPress admin
 4. Configure under **Settings → FB Throttle**
 
-Or use WP-CLI:
+Or manually with WP-CLI (download first, then install):
 
 ```bash
-wp plugin install https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin/archive/main.zip --activate
+# Download the plugin
+curl -L -o fb-throttle.zip https://github.com/nadimtuhin/Facebook-Request-Throttle-WordPress-Plugin/archive/main.zip
+
+# Install and activate
+wp plugin install fb-throttle.zip --activate
 ```
 
 ## When to Use This Plugin
 
 **Good fit:**
+
 - Shared hosting with limited resources
 - Sites that frequently go viral on social media
 - WordPress installations seeing high crawler traffic in access logs
 
 **Not needed:**
+
 - Sites on dedicated servers with resources to spare
 - Low-traffic blogs with occasional social shares
 - If you're already using Cloudflare or similar with bot management
@@ -178,6 +207,14 @@ Building this plugin taught me a few things about open-source maintenance:
 2. **Logging is not optional.** Users need to see what's happening. "Trust me, it's working" isn't good enough.
 
 3. **Start simple, expand based on need.** The original plugin was 30 lines. Now it's ~300, but every addition came from a real use case.
+
+## Security Considerations
+
+When implementing crawler throttling, be aware of:
+
+- **User-agent spoofing:** Any bot can claim to be `facebookexternalhit`. This plugin is for rate limiting, not security.
+- **Log injection:** Always sanitize data before writing to logs (the code above demonstrates this).
+- **Race conditions:** Under very high load, multiple requests may pass the throttle check simultaneously. For most sites, this is acceptable.
 
 ## Get Involved
 

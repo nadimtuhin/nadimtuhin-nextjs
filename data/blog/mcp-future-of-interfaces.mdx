@@ -2,7 +2,7 @@
 title: 'From Clicks to Prompts: Why User Interfaces Are Disappearing'
 date: '2026-01-06'
 tags: ['mcp', 'ai', 'interfaces', 'paradigm-shift', 'agentic-ai', 'zero-ui']
-draft: false
+draft: true
 summary: 'The 50-year-old WIMP paradigm is hitting its limits. Here is why AI agents and the Model Context Protocol are making traditional GUIs obsolete.'
 ---
 
@@ -24,13 +24,13 @@ Eric Schmidt recently asked: "Why do I have to be stuck in what is called the 'W
 
 It's a fair question. The WIMP paradigm has serious limitations that become more obvious as software grows more complex:
 
-| Problem | What It Means |
-|---------|---------------|
-| **Expert users find it slow** | Power users bypass GUIs with keyboard shortcuts because clicking through menus wastes time |
-| **Doesn't scale** | As apps add features, menus become nested labyrinths. Ever hunted for a setting in Photoshop? |
-| **Screen real estate** | Windows overlap, hide each other, and compete for your attention |
-| **Forces you to learn the software** | Every app has different conventions. You adapt to the tool, not the other way around |
-| **Limited input** | Mouse and keyboard are 2D tools. Great for pointing, terrible for expressing complex intent |
+| Problem                              | What It Means                                                                                 |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| **Expert users find it slow**        | Power users bypass GUIs with keyboard shortcuts because clicking through menus wastes time    |
+| **Doesn't scale**                    | As apps add features, menus become nested labyrinths. Ever hunted for a setting in Photoshop? |
+| **Screen real estate**               | Windows overlap, hide each other, and compete for your attention                              |
+| **Forces you to learn the software** | Every app has different conventions. You adapt to the tool, not the other way around          |
+| **Limited input**                    | Mouse and keyboard are 2D tools. Great for pointing, terrible for expressing complex intent   |
 
 The GUI was revolutionary in 1984. But we've been patching the same paradigm for half a century.
 
@@ -39,10 +39,10 @@ The GUI was revolutionary in 1984. But we've been patching the same paradigm for
 Here's the core change happening right now:
 
 **Command-based computing (old model):**
-You tell the computer *how* to do something. Click File → New → Spreadsheet → Format → Add Column → Name it "Revenue"...
+You tell the computer _how_ to do something. Click File → New → Spreadsheet → Format → Add Column → Name it "Revenue"...
 
 **Intent-based computing (new model):**
-You tell the computer *what* you want. "Create a spreadsheet tracking monthly revenue by product line."
+You tell the computer _what_ you want. "Create a spreadsheet tracking monthly revenue by product line."
 
 This isn't a minor UX improvement. It's a fundamental inversion of the human-computer relationship.
 
@@ -72,6 +72,7 @@ This wasn't possible five years ago. The models weren't good enough.
 The Model Context Protocol, released by Anthropic in late 2024, solved the integration problem. Before MCP, connecting an AI to your tools meant custom code for every integration. MCP standardizes this—write one server, and any AI can use your tool.
 
 The adoption has been remarkable:
+
 - OpenAI integrated MCP across all products (March 2025)
 - Microsoft added MCP support to Windows 11 (May 2025)
 - Google DeepMind built native MCP support into Gemini
@@ -104,6 +105,7 @@ The industry calls this direction "Zero UI"—interfaces that require little to 
 Here's a concrete example of the shift:
 
 **Old way (WIMP):**
+
 1. Open travel booking site
 2. Click "Flights"
 3. Enter departure city
@@ -169,6 +171,7 @@ This is why Cloudflare's team concluded: "LLMs are better at writing code to cal
 If agents become the primary interface, the SaaS model has a problem.
 
 Traditional SaaS depends on:
+
 - Users logging into your app
 - Users learning your interface
 - Users spending time clicking through your features
@@ -182,11 +185,11 @@ Salesforce sees this coming: "We're at the beginning of a major transformation i
 
 Some predictions:
 
-| Source | Prediction |
-|--------|------------|
-| **Gartner** | By 2028, AI agent ecosystems will dynamically collaborate across applications without users touching each app individually |
-| **Microsoft** | Windows 11 now includes MCP as a foundational layer, with agents invokable via "@" mentions from the taskbar |
-| **Industry analysts** | The entire SaaS economy faces disruption as agents complete tasks end-to-end |
+| Source                | Prediction                                                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Gartner**           | By 2028, AI agent ecosystems will dynamically collaborate across applications without users touching each app individually |
+| **Microsoft**         | Windows 11 now includes MCP as a foundational layer, with agents invokable via "@" mentions from the taskbar               |
+| **Industry analysts** | The entire SaaS economy faces disruption as agents complete tasks end-to-end                                               |
 
 ## The Agentic Operating System
 
@@ -194,14 +197,15 @@ An essay from Serious Insights argues that Windows, macOS, and Linux will become
 
 The argument: when your primary computing relationship is with an orchestration layer (an AI that remembers context, explains options, and executes on your behalf), the underlying OS becomes an implementation detail.
 
-| Traditional OS | Agentic OS |
-|----------------|------------|
-| File-based storage | Knowledge graphs and semantic search |
-| You launch apps | Agents orchestrate services |
-| Deterministic operations | Probabilistic intent-matching |
-| Files and folders | Context and memory |
+| Traditional OS           | Agentic OS                           |
+| ------------------------ | ------------------------------------ |
+| File-based storage       | Knowledge graphs and semantic search |
+| You launch apps          | Agents orchestrate services          |
+| Deterministic operations | Probabilistic intent-matching        |
+| Files and folders        | Context and memory                   |
 
 Microsoft clearly sees this. At Build 2025, they introduced:
+
 - MCP as a foundational layer in Windows 11
 - "Ask Copilot on the taskbar"—unified entry point for agents
 - "@" mentions to invoke agents directly from the taskbar
@@ -241,16 +245,19 @@ The GUI becomes a specialized tool rather than the default interaction mode. You
 ## The Timeline
 
 **Now (2026):**
+
 - MCP adoption accelerating
 - Code execution making agents practical
 - Early "agentic-native" apps appearing
 
 **Near-term (2027-2028):**
+
 - Agent-to-agent communication standards (Google's Agent2Agent protocol)
 - OS-level agent permissions and sandboxing mature
 - First applications with no traditional UI at all
 
 **Long-term (2030+):**
+
 - Traditional GUIs become accessibility/power-user features
 - Natural language as primary computing interface
 - The meaning of "using a computer" fundamentally changes
@@ -283,4 +290,4 @@ The best interface is the one you don't notice. We're finally building the infra
 - [MCP Went Sideways](https://waleedk.medium.com/the-evolution-of-ai-tool-use-mcp-went-sideways-8ef4b1268126) — Critical analysis of MCP's evolution
 - [The Agentic Operating System](https://www.seriousinsights.net/agentic-operating-system/) — Why traditional OSes become legacy
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/specification/2025-11-25) — Official spec
-- [WIMP Computing](https://en.wikipedia.org/wiki/WIMP_(computing)) — History of the paradigm we're leaving behind
+- [WIMP Computing](<https://en.wikipedia.org/wiki/WIMP_(computing)>) — History of the paradigm we're leaving behind
