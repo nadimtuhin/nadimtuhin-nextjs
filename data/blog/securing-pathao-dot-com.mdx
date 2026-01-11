@@ -23,21 +23,18 @@ Pathao.com runs on WordPress multisite, serving content in three languages:
 Each site needs its own security considerations while maintaining consistent protection across the platform. We faced several critical challenges:
 
 1. **High-Value Target**: As one of South Asia's leading tech companies, we were constantly targeted by:
-
    - Automated vulnerability scanners
    - Malicious bots and crawlers
    - SQL injection attempts
    - Brute force login attacks
 
 2. **Performance Impact**: Security scanning tools were causing:
-
    - High server CPU usage from repeated scanning
    - Increased bandwidth consumption
    - Slower response times for legitimate users
    - Occasional server timeouts during peak scan periods
 
 3. **Multilingual Complexity**: Managing security across three different sites meant:
-
    - More entry points to protect
    - Complex URL patterns to secure
    - Different content types requiring varied security rules
@@ -62,19 +59,25 @@ First, we implemented essential security headers to protect against common web v
 server_tokens off;
 
 # HSTS for enforcing HTTPS
-add_header Strict-Transport-Security "max-age=63072000; includeSubdomains;";
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 
 # Prevent clickjacking attacks
-add_header X-Frame-Options SAMEORIGIN;
+add_header X-Frame-Options SAMEORIGIN always;
 
 # Disable content-type sniffing
-add_header X-Content-Type-Options nosniff;
+add_header X-Content-Type-Options nosniff always;
 
-# Enable XSS protection
-add_header X-XSS-Protection "1; mode=block";
+# Content Security Policy - the modern replacement for X-XSS-Protection
+# Customize based on your site's requirements
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; frame-ancestors 'self';" always;
+
+# Note: X-XSS-Protection is deprecated - Chrome removed XSS Auditor in 2019
+# Modern browsers ignore this header. Use Content-Security-Policy instead.
 ```
 
 These headers form our first line of defense against various attack vectors.
+
+> **Important**: Always add `always` to `add_header` directives to ensure headers are sent even on error responses.
 
 ## 2. Basic Security Measures
 
@@ -170,9 +173,13 @@ location ~* ^/wp-content/uploads/.*.(html|htm|shtml|php|js|swf|css)$ {
 
 ### SQL Injection Protection
 
+> **Caveat**: Regex-based SQL injection detection at the nginx level is a defense-in-depth measure, not a primary protection. It can produce false positives (blocking legitimate content containing words like "select" or "union") and is easily bypassed with encoding tricks. **Always use parameterized queries/prepared statements as your primary defense.**
+
 ```nginx
-# Block SQL injection attempts
-location ~* "(\'|\")(.*)(drop|insert|md5|select|union)" {
+# Block obvious SQL injection attempts
+# Note: This catches common automated attacks but is NOT a substitute for
+# proper input validation and parameterized queries in your application
+location ~* "(\%27|\')(\%20|\s)*(or|and|union|select|insert|drop|delete|update|exec|execute)(\%20|\s)" {
     add_header X-Block-Reason "SQL Injection Attempt" always;
     deny all;
 }
@@ -222,25 +229,24 @@ location ~* "\.(old|orig|original|php#|php~|php_bak|save|swo|aspx?|tpl|sh|bash|b
 
 ### XSS & Command Injection Protection
 
+> **Important**: Content-Security-Policy headers (configured above) are your primary XSS defense. These nginx rules are supplementary blocking for obvious attack patterns.
+
 ```nginx
-# Block XSS attempts
-location ~* "(<|%3C).*script.*(>|%3)" {
+# Block script tag injection attempts
+# Catches common XSS patterns with URL encoding variations
+location ~* "(<|%3C)\s*script.*?(>|%3E)" {
     add_header X-Block-Reason "XSS Attempt" always;
     deny all;
 }
 
-# Block remote file inclusion attempts
-location ~* "(https?|ftp|php):/" {
-    add_header X-Block-Reason "Remote File Inclusion Attempt" always;
-    deny all;
-}
-
-# Block command injection attempts
-location ~ "(~|`|<|>|:|;|%|\\|\s|\{|\}|\[|\]|\|)" {
-    add_header X-Block-Reason "Command Injection Attempt" always;
+# Block obvious event handler injection (onerror, onload, etc.)
+location ~* "(\%20|\s)(on\w+)\s*=" {
+    add_header X-Block-Reason "XSS Attempt" always;
     deny all;
 }
 ```
+
+> **Note on command injection**: Blocking shell metacharacters in nginx location blocks is generally not recommended as it can break legitimate URLs containing common characters like `:` (ports, protocols), `%` (URL encoding), or `;` (query parameters). Implement command injection protection in your application layer with proper input validation and avoid shell execution where possible.
 
 # Performance Optimization
 
@@ -393,8 +399,8 @@ Here's a template for testing your security implementation:
    curl -I "https://your-domain.com/wp-content/themes/test.php"
 
    # Test SQL injection protection
-   curl "https://your-domain.com/?id=1' OR '1'='1"
-   curl "https://your-domain.com/?user=admin'--"
+   curl "https://your-domain.com/?id=1%27%20or%201=1"
+   curl "https://your-domain.com/?user=admin%27%20union%20select"
 
    # Test path traversal protection
    curl -I "https://your-domain.com/wp-content/plugins/../../../etc/passwd"
