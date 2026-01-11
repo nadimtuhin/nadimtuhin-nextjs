@@ -1,0 +1,775 @@
+---
+title: 'From Idea to Production: My DevOps Workflow'
+date: '2026-01-08'
+tags: ['devops', 'ci-cd', 'github-actions', 'deployment', 'automation']
+draft: false
+summary: 'How I automate everything from Git push to production deployment using GitHub Actions, security scanning, and Vercel integration.'
+---
+
+Six months ago, I was manually building and deploying each project. Now I push code, grab coffee, and watch automated tests, security scans, and deployments execute in parallel.
+
+This is the complete workflow I've refined across 60+ open-source projects.
+
+## TL;DR: The Workflow
+
+| Stage       | Tool           | What Happens                 |
+| ----------- | -------------- | ---------------------------- |
+| **Commit**  | Git            | Pre-commit hooks run linters |
+| **Push**    | GitHub Actions | Matrix tests + security scan |
+| **PR**      | Claude AI      | Automated code review        |
+| **Merge**   | Vercel         | Zero-downtime deployment     |
+| **Monitor** | Trivy/GitHub   | Vulnerability alerts         |
+
+Total time from push to production: **~8 minutes** (including automated testing and security scanning).
+
+---
+
+## The Git Workflow
+
+### Branch Strategy
+
+After years of experimentation, I settled on a simple approach:
+
+```bash
+# Main branches
+main           # Production-ready code
+develop         # Development integration
+
+# Feature branches
+feature/project-name
+fix/bug-description
+hotfix/urgent-fix
+```
+
+**Rules:**
+
+- Never push directly to `main`
+- All changes go through pull requests
+- `main` is always deployable
+- `develop` merges to `main` via PR
+
+### Commit Convention
+
+I use Conventional Commits for automation:
+
+```bash
+# Format: <type>(<scope>): <description>
+feat(auth): add OAuth2 login flow
+fix(api): resolve rate limiting bug
+docs(readme): update installation steps
+test(auth): add user session tests
+security(api): sanitize SQL queries
+```
+
+**Why it matters:** Git hooks and CI can parse commit types to skip unnecessary checks.
+
+### Pre-Commit Automation
+
+Husky v9+ runs linting before I can commit:
+
+```bash
+# Install and set up Husky
+npm install husky --save-dev
+npx husky init
+
+# Create pre-commit hook
+echo "npm run lint && npm run typecheck" > .husky/pre-commit
+```
+
+The `.husky/pre-commit` file runs on every commit. If linting fails, the commit is blocked. No broken code in the repository.
+
+---
+
+## CI/CD Pipeline
+
+### GitHub Actions Matrix Testing
+
+Every push triggers matrix builds across Node versions:
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run linter
+        run: yarn lint
+
+      - name: Build project
+        run: yarn build
+
+      - name: Run tests
+        run: yarn test
+```
+
+**Benefits:**
+
+- Tests against multiple Node versions (18 LTS, 20 LTS, 22 Current)
+- Catches version-specific bugs before deployment
+- Runs in parallel (all versions simultaneously, depends on runner availability)
+- `fail-fast: false` ensures all versions are tested even if one fails
+
+### Automated Security Scanning
+
+Trivy scans on every push and PR:
+
+```yaml
+# .github/workflows/security-scan.yml
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+
+jobs:
+  trivy:
+    name: Trivy vulnerability scanner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'Trivy'
+
+      - name: Comment PR on failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ Security vulnerabilities detected! Please review the [Security tab](https://github.com/${context.repo.owner}/${context.repo.repo}/security/code-scanning) for details.`
+            })
+```
+
+**Key features:**
+
+- **Scan triggers:** Push, PR, weekly schedule
+- **Severity threshold:** Only blocks on CRITICAL/HIGH
+- **SARIF upload:** Vulnerabilities appear in GitHub Security tab
+- **PR comments:** Automatic alerts when vulnerabilities detected
+- **Weekly scans:** Catch new CVEs even without code changes
+
+### AI-Powered Code Review
+
+Claude Code Review runs on every PR:
+
+```yaml
+# .github/workflows/claude-code-review.yml
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          direct_prompt: |
+            Please review this pull request and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
+
+            Be constructive and helpful in your feedback.
+```
+
+**What Claude catches:**
+
+- Logic errors I missed
+- Security vulnerabilities
+- Performance bottlenecks
+- Missing edge cases
+- Test coverage gaps
+
+**Real example:** Claude once caught a potential SQL injection in a helper function that 3 manual reviewers missed.
+
+---
+
+## Deployment Strategy
+
+### Next.js on Vercel
+
+Most of my projects deploy to Vercel. For Next.js, Vercel requires **zero configuration** - it auto-detects and optimizes your app. No `vercel.json` needed for standard deployments.
+
+**Build optimization (Pages Router only):**
+
+```javascript
+// next.config.js
+module.exports = {
+  reactStrictMode: true,
+
+  // Use Preact in production for smaller bundle
+  webpack: (config, { dev, isServer }) => {
+    if (!dev && !isServer) {
+      Object.assign(config.resolve.alias, {
+        react: 'preact/compat',
+        'react-dom': 'preact/compat',
+      })
+    }
+
+    return config
+  },
+}
+```
+
+**Result:** Smaller first load JS compared to full React.
+
+> **Caveat:** This Preact swap only works with the **Pages Router**. It will break React Server Components, Suspense, and the App Router (Next.js 13+). For App Router projects, skip this optimization - React 18's tree-shaking is already efficient.
+
+### Security Headers
+
+Next.js applies security headers via configuration:
+
+```javascript
+// next.config.js
+const securityHeaders = [
+  {
+    key: 'Content-Security-Policy',
+    value:
+      'default-src "self"; script-src "self" "unsafe-eval" giscus.app analytics.ahrefs.com; style-src "self" "unsafe-inline" cdn.jsdelivr.net; img-src * data:;',
+  },
+  {
+    key: 'Strict-Transport-Security',
+    value: 'max-age=31536000; includeSubDomains; preload',
+  },
+  {
+    key: 'X-Frame-Options',
+    value: 'DENY',
+  },
+  {
+    key: 'X-Content-Type-Options',
+    value: 'nosniff',
+  },
+]
+
+module.exports = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+    ]
+  },
+}
+```
+
+**Headers applied:**
+
+- **CSP:** Prevents XSS attacks
+- **HSTS:** Forces HTTPS for 1 year
+- **X-Frame-Options:** Blocks clickjacking
+- **X-Content-Type-Options:** Stops MIME sniffing attacks
+
+### Docker Deployment
+
+For backend services, I use Docker:
+
+```dockerfile
+# Dockerfile for Node.js service
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install ALL dependencies (including devDependencies for build)
+COPY package*.json ./
+RUN npm ci
+
+# Copy source with correct ownership
+COPY --chown=node:node . .
+
+# Build the project
+RUN npm run build
+
+# Remove devDependencies after build
+RUN npm prune --production
+
+# Expose port
+EXPOSE 3000
+
+# Non-root user for security
+USER node
+
+CMD ["npm", "start"]
+```
+
+**Docker Compose for local development:**
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+**Benefits:**
+
+- Consistent environments (local = staging = production)
+- Easy scaling with Docker Swarm/Kubernetes
+- Volume persistence for databases
+- One command to start entire stack
+
+---
+
+## Monitoring and Maintenance
+
+### GitHub Security Tab Integration
+
+All Trivy scans upload SARIF results to GitHub Security:
+
+```yaml
+- name: Upload Trivy scan results to GitHub Security tab
+  uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: 'trivy-results.sarif'
+    category: 'Trivy'
+```
+
+**Result:**
+
+- Vulnerability dashboard at `/security`
+- Alerts for new CVEs
+- Integration with Dependabot
+- Historical tracking of security issues
+
+### Automated Dependency Updates
+
+I use Renovate or Dependabot:
+
+```json
+// renovate.json
+{
+  "extends": ["config:base"],
+  "schedule": ["every weekend"],
+  "automerge": false,
+  "prConcurrentLimit": 5,
+  "labels": ["dependencies"]
+}
+```
+
+**What it does:**
+
+- Scans `package.json` for outdated dependencies
+- Opens PRs with version updates
+- Groups related updates (e.g., all React packages)
+- Respects semantic versioning (major vs minor vs patch)
+
+**Rules:**
+
+- Patch and minor updates: Create PRs for review
+- Major updates: Notify via issue (requires manual review)
+- Security vulnerabilities: Immediate alert
+
+### Error Tracking
+
+For production apps, I integrate error tracking:
+
+```javascript
+// Error boundary example
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log to error tracking service
+    logError({
+      error: error.toString(),
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      timestamp: new Date().toISOString(),
+    })
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div>Something went wrong. Please refresh the page.</div>
+    }
+    return this.props.children
+  }
+}
+```
+
+**Benefits:**
+
+- Real-time error alerts
+- User context (browser, URL, timestamp)
+- Stack traces for debugging
+- Grouping similar errors (don't spam notifications)
+
+---
+
+## Complete Workflow Example
+
+### Scenario: Fixing a Bug
+
+```bash
+# 1. Create feature branch
+git checkout -b fix/login-timeout
+
+# 2. Make changes
+# ... edit code ...
+
+# 3. Pre-commit hooks run
+git add .
+git commit -m "fix(auth): resolve session timeout issue"
+# → Husky runs: npm run lint && npm run typecheck
+
+# 4. Push to remote
+git push origin fix/login-timeout
+
+# 5. Open PR on GitHub
+# → Automatically triggers:
+#   • Matrix tests (Node 18, 20, 22)
+#   • Trivy security scan
+#   • Claude code review
+
+# 6. Review feedback
+# → Claude comments: "Potential race condition in line 42"
+# → Security scan: "No vulnerabilities found"
+
+# 7. Fix feedback
+# ... edit code ...
+git commit -m "fix(auth): address race condition in session check"
+git push
+
+# 8. CI passes, merge to main
+# → Triggers Vercel deployment
+
+# 9. Production deployment
+# → Vercel builds and deploys in ~3 minutes
+# → Zero downtime with preview deployments
+
+# 10. Monitor
+# → Error tracking confirms fix resolved
+# → Security tab shows no new vulnerabilities
+```
+
+**Total time:**
+
+- Initial commit: ~2 minutes
+- CI/CD: ~8 minutes (tests + scan + review)
+- Deployment: ~3 minutes
+- **Total: ~13 minutes from local fix to production**
+
+---
+
+## Performance Metrics
+
+After implementing this workflow across projects:
+
+| Metric                      | Before                    | After                   |
+| --------------------------- | ------------------------- | ----------------------- |
+| **Deploy time**             | 30-45 minutes (manual)    | 3 minutes (automated)   |
+| **Broken deploys**          | ~3/month (forgot to test) | ~0.2/month (CI blocked) |
+| **Security scan frequency** | Never (too busy)          | Every push + weekly     |
+| **Code review coverage**    | 60% (human fatigue)       | 100% (AI + human)       |
+| **Deployment anxiety**      | High (manual process)     | Low (automated gates)   |
+
+---
+
+## Tool Stack
+
+| Tool                   | Purpose             | Why I chose it                     |
+| ---------------------- | ------------------- | ---------------------------------- |
+| **Git**                | Version control     | Industry standard                  |
+| **GitHub Actions**     | CI/CD               | Free, fast, great UI               |
+| **Trivy**              | Security scanning   | Comprehensive, SARIF support       |
+| **Claude Code Review** | Automated PR review | Catches issues humans miss         |
+| **Vercel**             | Next.js deployment  | Zero-config, fast, free            |
+| **Docker**             | Containerization    | Portable, scalable                 |
+| **Husky**              | Pre-commit hooks    | Prevents broken commits            |
+| **Renovate**           | Dependency updates  | Better than Dependabot             |
+| **Preact**             | Bundle optimization | Smaller bundle (Pages Router only) |
+
+---
+
+## Cost Analysis
+
+### Monthly Costs for DevOps Stack
+
+| Service                     | Cost                         | What it provides                    |
+| --------------------------- | ---------------------------- | ----------------------------------- |
+| **GitHub Actions**          | $0 (2000 free minutes/month) | CI/CD, security scans               |
+| **Vercel Pro**              | $20/month                    | Faster builds, analytics            |
+| **Domain (nadimtuhin.com)** | $12/year                     | Custom domain                       |
+| **Email hosting**           | $5/month                     | Transactional emails                |
+| **Monitoring (optional)**   | $0-10/month                  | Error tracking (Sentry/Honeybadger) |
+| **Total**                   | **~$25-30/month**            | Complete DevOps pipeline            |
+
+### Savings
+
+**Before automation:**
+
+- Manual deployments: 4-6 hours/month × $100/hour = $400-600/month
+- Emergency fixes (broken deploys): 2-3 hours/month = $200-300/month
+- **Total opportunity cost:** $600-900/month
+
+**After automation:**
+
+- Automated DevOps: $25-30/month
+- Review time: 1-2 hours/month = $100-200/month
+- **Total cost:** $125-230/month
+
+**Net savings:** ~$475-670/month
+
+---
+
+## When This Workflow Won't Work
+
+This setup assumes:
+
+- **GitHub-hosted code:** If you use GitLab/Bitbucket, use GitLab CI/Jenkins
+- **Next.js projects:** Other frameworks need different deployment (Netlify, Heroku, etc.)
+- **Small-to-medium teams:** Large enterprises might need specialized tools
+- **Standard stack:** If you use monorepos with multiple languages, complexity increases
+
+**Alternatives:**
+
+- **GitLab CI:** Similar to GitHub Actions, built into GitLab
+- **Jenkins:** Highly customizable, but complex setup
+- **CircleCI:** Great for Docker-heavy workflows
+- **Netlify:** Simpler than Vercel, but fewer features
+
+---
+
+## Future Improvements
+
+### What's Working Well
+
+- ✅ Automated security scanning blocks vulnerable deployments
+- ✅ AI code review catches 30-40% more issues than human-only review
+- ✅ Zero-downtime deployments with preview branches
+- ✅ Matrix testing ensures cross-version compatibility
+
+### What Needs Improvement
+
+- 🔄 **Canary deployments:** Roll out to 10% of users, monitor, then full rollout
+- 🔄 **Feature flags:** Launch features behind flags instead of deployments
+- 🔄 **Performance monitoring:** Add APM (Application Performance Monitoring)
+- 🔄 **Rollback automation:** One-click rollback on error spikes
+
+### Planned Changes
+
+**Canary deployment strategy:**
+
+```yaml
+# Future workflow
+- name: Deploy canary
+  run: |
+    # Deploy to 10% of traffic
+    kubectl patch deployment -p '{"spec":{"replicas":1}}'
+    wait 10 minutes
+    check_error_rate()
+    if error_rate > threshold:
+      rollback()
+    else:
+      full_rollout()
+```
+
+---
+
+## Lessons Learned
+
+### 1. Start Simple, Expand Based on Need
+
+I didn't implement everything at once. Started with:
+
+1. Basic CI (build + test)
+2. Added security scanning
+3. Added automated code review
+4. Optimized deployment
+
+Each addition solved a specific pain point.
+
+### 2. Automation Pays for Itself Quickly
+
+First week after setting up automated tests, I prevented 3 broken deployments. The setup time was recovered in 2 days.
+
+### 3. Security Can't Be an Afterthought
+
+Adding Trivy scanning took 2 hours. It caught a critical vulnerability in a dependency that would have exposed user data. Security ROI is infinite.
+
+### 4. Documentation Is Critical
+
+I document every workflow change in README files. When I revisit projects months later, context is already there.
+
+### 5. Metrics Drive Decisions
+
+I track:
+
+- CI/CD success rates
+- Deployment frequency
+- Time from commit to production
+- Security scan results
+- Error rates post-deployment
+
+These metrics tell me what to improve next.
+
+---
+
+## Getting Started
+
+If you want to adopt this workflow:
+
+**Step 1: Add GitHub Actions CI**
+
+```bash
+# Create .github/workflows/ci.yml
+# Copy matrix testing workflow from above
+```
+
+**Step 2: Add Security Scanning**
+
+```bash
+# Create .github/workflows/security-scan.yml
+# Copy Trivy workflow from above
+```
+
+**Step 3: Connect to Vercel**
+
+```bash
+npm install -g vercel
+vercel login
+vercel link
+```
+
+**Step 4: Add Pre-commit Hooks**
+
+```bash
+npm install husky lint-staged --save-dev
+npx husky install
+npx husky add .husky/pre-commit "npx lint-staged"
+```
+
+**Step 5: Test the Full Pipeline**
+
+```bash
+# Create a test branch
+git checkout -b test-pipeline
+
+# Make a trivial change
+echo "test" > test.txt
+git add test.txt
+git commit -m "test(ci): verify pipeline"
+
+# Push and watch everything run
+git push origin test-pipeline
+```
+
+---
+
+## Final Thoughts
+
+My DevOps workflow isn't perfect. It continues to evolve.
+
+But, the difference between "manual, scary deployments" and "automated, confident deployments" is massive.
+
+Automated tests catch bugs before users see them. Security scanning prevents vulnerabilities from reaching production. AI code review provides feedback I can't get from humans alone.
+
+The best workflow is the one that gives you confidence to push code on Friday afternoon without staying up all night monitoring production.
+
+That took me 6 years to achieve. Hopefully this guide gets you there faster.
+
+---
+
+## Resources
+
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [Trivy Vulnerability Scanner](https://trivy.dev)
+- [Claude Code Review Action](https://github.com/anthropics/claude-code-action)
+- [Vercel Deployment](https://vercel.com/docs)
+- [Next.js Security Headers](https://nextjs.org/docs/app/building-your-application/configuring/headers)
+- [Husky Git Hooks](https://github.com/typicode/husky)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [Renovate Bot](https://github.com/renovatebot/renovate)

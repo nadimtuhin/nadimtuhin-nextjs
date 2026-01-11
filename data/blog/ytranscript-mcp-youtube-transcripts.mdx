@@ -1,0 +1,192 @@
+---
+title: 'Automating My Second Brain with YouTube Transcripts'
+date: '2026-01-11'
+tags: ['youtube', 'obsidian', 'n8n', 'automation', 'knowledge-management', 'open-source']
+draft: false
+summary: 'I built ytranscript - an open-source CLI to fetch YouTube transcripts for automation pipelines. Here is why, and how it fits into my Obsidian + n8n workflow.'
+---
+
+Last week I spent 20 minutes searching for a video I'd watched months ago. Something about API rate limiting patterns. I knew the exact moment - the speaker drew a diagram on a whiteboard that clicked everything into place. But I couldn't find it. My Watch Later had 400+ videos. My bookmarks were useless.
+
+That diagram is gone. I'll probably never find it.
+
+This keeps happening. So I'm building a system to fix it.
+
+## The Core Insight
+
+**Once you have transcripts, everything becomes searchable.** The video I lost? If I had the transcript, I could grep for "rate limit" and find it in seconds. I could feed it to an LLM for summarization. I could link it to my notes on API design.
+
+The output format doesn't matter yet - blog posts, mindmaps, a searchable wiki, whatever. The bottleneck is getting the text out of videos and into my note system automatically.
+
+## My Current Workflow
+
+<div className="my-8 space-y-3 not-prose">
+  <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+    <div className="flex-shrink-0 w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center text-white font-bold">
+      1
+    </div>
+    <div>
+      <div className="font-bold text-gray-900 dark:text-gray-100">Watch a video</div>
+      <div className="text-sm text-gray-600 dark:text-gray-400">
+        Find something worth remembering
+      </div>
+    </div>
+  </div>
+  <div className="flex justify-center">
+    <div className="w-0.5 h-4 bg-gray-300 dark:bg-gray-600"></div>
+  </div>
+  <div className="flex items-center gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+    <div className="flex-shrink-0 w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
+      2
+    </div>
+    <div>
+      <div className="font-bold text-gray-900 dark:text-gray-100">
+        Clip with Obsidian Web Clipper
+      </div>
+      <div className="text-sm text-gray-600 dark:text-gray-400">
+        Creates a note with the URL in my vault
+      </div>
+    </div>
+  </div>
+  <div className="flex justify-center">
+    <div className="w-0.5 h-4 bg-gray-300 dark:bg-gray-600"></div>
+  </div>
+  <div className="flex items-center gap-3 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
+    <div className="flex-shrink-0 w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold">
+      3
+    </div>
+    <div>
+      <div className="font-bold text-gray-900 dark:text-gray-100">n8n runs periodically</div>
+      <div className="text-sm text-gray-600 dark:text-gray-400">
+        Scans vault for notes with YouTube URLs missing transcripts
+      </div>
+    </div>
+  </div>
+  <div className="flex justify-center">
+    <div className="w-0.5 h-4 bg-gray-300 dark:bg-gray-600"></div>
+  </div>
+  <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+    <div className="flex-shrink-0 w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center text-white font-bold">
+      4
+    </div>
+    <div>
+      <div className="font-bold text-gray-900 dark:text-gray-100">
+        ytranscript fetches the transcript
+      </div>
+      <div className="text-sm text-gray-600 dark:text-gray-400">
+        CLI call from n8n's Execute Command node
+      </div>
+    </div>
+  </div>
+  <div className="flex justify-center">
+    <div className="w-0.5 h-4 bg-gray-300 dark:bg-gray-600"></div>
+  </div>
+  <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+    <div className="flex-shrink-0 w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold">
+      5
+    </div>
+    <div>
+      <div className="font-bold text-gray-900 dark:text-gray-100">Note gets enriched</div>
+      <div className="text-sm text-gray-600 dark:text-gray-400">
+        Full transcript appended, now searchable
+      </div>
+    </div>
+  </div>
+</div>
+
+[n8n](https://n8n.io) is an open-source workflow automation tool - think Zapier but self-hosted. [Obsidian Web Clipper](https://obsidian.md/clipper) saves web pages to your vault with one click.
+
+## Why I Built ytranscript
+
+I tried existing solutions:
+
+- **Third-party APIs** (youtubetotranscript.com, etc.) - Work until they don't. Rate limits, downtime, sometimes paid.
+- **Python's youtube-transcript-api** - Good library, but I wanted something I could call from n8n without setting up a Python environment.
+- **Browser extensions** - Manual. The whole point is automation.
+
+What I needed: a CLI I could call from a shell script or n8n node. Minimal setup, no API keys, no accounts.
+
+So I built [**ytranscript**](https://github.com/nadimtuhin/ytranscript). It uses YouTube's internal innertube API directly - the same one their web player uses.
+
+> **Note:** This tool uses an undocumented YouTube API that could change at any time. Not all videos have transcripts available (age-restricted, private, or videos without captions).
+
+## Usage
+
+```bash
+# Install globally
+npm install -g @nadimtuhin/ytranscript
+
+# Fetch a transcript
+ytranscript get "https://youtube.com/watch?v=dQw4w9WgXcQ"
+
+# Or run without installing (npx)
+npx @nadimtuhin/ytranscript get VIDEO_ID
+
+# Check available languages
+ytranscript info VIDEO_ID
+
+# Output as SRT subtitles
+ytranscript get VIDEO_ID --format srt -o captions.srt
+```
+
+In n8n, use the Execute Command node:
+
+```bash
+npx @nadimtuhin/ytranscript get "{{ $json.youtube_url }}" --format text
+```
+
+For bulk processing (e.g., your entire Watch Later export from Google Takeout):
+
+```bash
+ytranscript bulk --file video-ids.txt --out-jsonl transcripts.jsonl --resume
+```
+
+The `--resume` flag skips already-processed videos. I had a backlog of 200+ videos to process.
+
+> **Rate limiting:** YouTube will throttle aggressive requests. Use `--pause-after 10 --pause-ms 5000` for large batches to avoid getting blocked.
+
+## MCP Integration
+
+I also added an MCP server, so Claude can fetch transcripts directly. Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "ytranscript": {
+      "command": "npx",
+      "args": ["-y", "ytranscript-mcp"]
+    }
+  }
+}
+```
+
+Or if you have it installed globally:
+
+```json
+{
+  "mcpServers": {
+    "ytranscript": {
+      "command": "ytranscript-mcp"
+    }
+  }
+}
+```
+
+Now Claude can answer "summarize this YouTube video" without you copy-pasting anything.
+
+## What I Haven't Figured Out Yet
+
+The transcript fetching works. What I'm still experimenting with:
+
+- **Summarization** - Should the n8n workflow call an LLM to generate a TL;DR? Or do I summarize on-demand when I revisit a note?
+- **Tagging** - Auto-extract topics and link to existing notes in my vault?
+- **Format** - Plain text dump, or structured with timestamps for jumping back to specific moments?
+
+I'll write a follow-up once I've settled on something.
+
+## Links
+
+- **GitHub**: [github.com/nadimtuhin/ytranscript](https://github.com/nadimtuhin/ytranscript)
+- **npm**: [@nadimtuhin/ytranscript](https://www.npmjs.com/package/@nadimtuhin/ytranscript)
+
+It's open source. If you're building something similar, I'd be curious what your pipeline looks like.
