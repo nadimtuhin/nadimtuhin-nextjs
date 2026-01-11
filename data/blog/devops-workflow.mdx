@@ -24,53 +24,27 @@ Total time from push to production: **~8 minutes** (including automated testing 
 
 ## Pipeline Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CI/CD PIPELINE FLOW                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+### Local Development
 
-  LOCAL                    GITHUB                         PRODUCTION
-────────────────────────────────────────────────────────────────────────────────
+1. **Code Change** → Developer makes changes
+2. **Husky Pre-commit Hooks** → Runs lint and typecheck
+3. **Commit** → If hooks pass, commit succeeds
 
- ┌──────────┐   push    ┌───────────────────────────────────────┐
- │  Code    │──────────▶│            GitHub Actions             │
- │  Change  │           │                                       │
- └──────────┘           │  ┌─────────────────────────────────┐  │
-      │                 │  │     Matrix Testing (parallel)   │  │
-      │                 │  │  ┌────────┬────────┬────────┐   │  │
-      ▼                 │  │  │Node 18 │Node 20 │Node 22 │   │  │
- ┌──────────┐           │  │  │  LTS   │  LTS   │Current │   │  │
- │  Husky   │           │  │  └───┬────┴───┬────┴───┬────┘   │  │
- │Pre-commit│           │  │      └────────┼────────┘        │  │
- │  Hooks   │           │  │               ▼                 │  │
- └──────────┘           │  │         lint → build → test     │  │
-      │                 │  └─────────────────────────────────┘  │
-      │                 │                  │                    │
-      ▼                 │                  ▼ (parallel)         │
- ┌──────────┐           │  ┌─────────────────────────────────┐  │
- │  Lint    │           │  │      Security Scan (Trivy)      │  │
- │Typecheck │           │  │   CRITICAL/HIGH → Block PR      │  │
- └──────────┘           │  └─────────────────────────────────┘  │
-      │                 │                  │                    │
-      │ pass            │                  ▼ (parallel)         │
-      ▼                 │  ┌─────────────────────────────────┐  │
- ┌──────────┐           │  │    Claude AI Code Review        │  │
- │  Commit  │           │  │   • Code quality  • Security    │  │
- └──────────┘           │  └─────────────────────────────────┘  │
-                        └───────────────────┬───────────────────┘
-                                            │ all checks pass
-                                            ▼
-                        ┌───────────────────────────────────────┐
-                        │              PR Merge                 │
-                        └───────────────────┬───────────────────┘
-                                            │
-                                            ▼
-                        ┌───────────────────────────────────────┐    ┌──────────┐
-                        │          Vercel Deployment            │───▶│Production│
-                        │    • Build + optimize                 │    │   Live   │
-                        │    • Zero-downtime deploy             │    └──────────┘
-                        └───────────────────────────────────────┘
-```
+### GitHub Actions (triggered on push)
+
+| Job                       | Description                     | Runs     |
+| ------------------------- | ------------------------------- | -------- |
+| **Matrix Testing**        | Tests across Node 18, 20, 22    | Parallel |
+| **Security Scan (Trivy)** | Blocks PR on CRITICAL/HIGH      | Parallel |
+| **Claude AI Code Review** | Reviews code quality & security | Parallel |
+
+**Matrix Testing Flow:** lint → build → test (sequential within each Node version)
+
+### Deployment (after all checks pass)
+
+1. **PR Merge** → All checks must pass
+2. **Vercel Deployment** → Build + optimize + zero-downtime deploy
+3. **Production Live** → Site is updated
 
 ---
 

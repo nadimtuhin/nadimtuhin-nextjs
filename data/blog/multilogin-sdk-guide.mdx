@@ -50,69 +50,27 @@ The magic? **I didn't write a single selector.** The AI figured it out.
 | One script per website                      | Same agent, any website                |
 | Hours debugging selectors                   | Minutes tweaking prompts               |
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│          TRADITIONAL AUTOMATION        │      AI-POWERED AUTOMATION      │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                        │                                 │
-│    Website Update                      │    Website Update               │
-│         │                              │         │                       │
-│         ▼                              │         ▼                       │
-│  ┌─────────────────┐                   │  ┌─────────────────┐            │
-│  │ Button renamed  │                   │  │ Button renamed  │            │
-│  │ #submit-v3 →    │                   │  │ #submit-v3 →    │            │
-│  │ #post-btn       │                   │  │ #post-btn       │            │
-│  └────────┬────────┘                   │  └────────┬────────┘            │
-│           │                            │           │                     │
-│           ▼                            │           ▼                     │
-│  ┌─────────────────┐                   │  ┌─────────────────┐            │
-│  │  ❌ FAILS       │                   │  │ AI finds button │            │
-│  │  Element not    │                   │  │ by text/ARIA    │            │
-│  │  found          │                   │  │ attributes      │            │
-│  └────────┬────────┘                   │  └────────┬────────┘            │
-│           │                            │           │                     │
-│           ▼                            │           ▼                     │
-│  ┌─────────────────┐                   │  ┌─────────────────┐            │
-│  │ Developer       │                   │  │  ✅ SUCCESS     │            │
-│  │ spends weekend  │                   │  │  Adapts to new  │            │
-│  │ fixing selectors│                   │  │  DOM structure  │            │
-│  └─────────────────┘                   │  └─────────────────┘            │
-│                                        │                                 │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+**Traditional Automation Flow:**
+
+1. Website updates → Button renamed (`#submit-v3` → `#post-btn`)
+2. Script fails → ❌ "Element not found"
+3. Developer spends weekend fixing selectors
+
+**AI-Powered Automation Flow:**
+
+1. Website updates → Button renamed (`#submit-v3` → `#post-btn`)
+2. AI finds button by text/ARIA attributes
+3. ✅ Adapts to new DOM structure automatically
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Your Application                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │  Profile 1  │  │  Profile 2  │  │  Profile N  │     │
-│  │  (Account A)│  │  (Account B)│  │  (Account X)│     │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘     │
-│         │                │                │             │
-│         ▼                ▼                ▼             │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │           LangChain ReAct Agent                 │   │
-│  │     "Think → Act → Observe → Repeat"            │   │
-│  └─────────────────────────────────────────────────┘   │
-│                          │                              │
-│                          ▼                              │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │              Puppeteer (Browser Control)         │   │
-│  │     click() • type() • screenshot() • wait()    │   │
-│  └─────────────────────────────────────────────────┘   │
-│                          │                              │
-│                          ▼                              │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │         Multilogin (Browser Isolation)           │   │
-│  │   Unique fingerprint • Cookies • Proxy • Session │   │
-│  └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-                    Target Website
-```
+| Layer         | Component           | Purpose                                     |
+| ------------- | ------------------- | ------------------------------------------- |
+| **Profiles**  | Profile 1, 2, ... N | Isolated accounts (A, B, X)                 |
+| **Agent**     | LangChain ReAct     | Think → Act → Observe → Repeat              |
+| **Control**   | Puppeteer           | click(), type(), screenshot(), wait()       |
+| **Isolation** | Multilogin          | Unique fingerprint, cookies, proxy, session |
+| **Target**    | Website             | The site being automated                    |
 
 **Why Multilogin?** Each profile has its own browser fingerprint, cookies, and session. Run 50 profiles simultaneously without them knowing they're from the same machine.
 

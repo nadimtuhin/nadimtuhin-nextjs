@@ -29,46 +29,23 @@ Read on for code examples and production patterns from automating Facebook Marke
 
 ### Selector Decision Flowchart
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  SELECTOR STRATEGY FLOW                      │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-              ┌─────────────────────────────┐
-              │ Has ARIA attribute?         │
-              │ [role], [aria-label], etc.  │
-              └─────────────────────────────┘
-                     │              │
-                    YES            NO
-                     │              │
-                     ▼              ▼
-         ┌──────────────────┐  ┌─────────────────────┐
-         │ Use ARIA selector│  │ Has test ID?        │
-         │ [role="heading"] │  │ [data-testid], #id  │
-         └──────────────────┘  └─────────────────────┘
-                                    │           │
-                                   YES         NO
-                                    │           │
-                                    ▼           ▼
-                        ┌────────────────┐ ┌──────────────────┐
-                        │ Use test ID    │ │ Has stable text? │
-                        │ #submit-button │ └──────────────────┘
-                        └────────────────┘      │          │
-                                               YES        NO
-                                                │          │
-                                                ▼          ▼
-                                   ┌────────────────┐ ┌─────────────────┐
-                                   │ Use text-based │ │ Use semantic tag│
-                                   │ $$eval + find  │ │ h1, button, etc │
-                                   └────────────────┘ └─────────────────┘
-                                                              │
-                                                              ▼
-                                              ┌───────────────────────────┐
-                                              │ ALWAYS add fallback       │
-                                              │ selectors as backup       │
-                                              └───────────────────────────┘
-```
+**Decision order (try each in sequence):**
+
+1. **Has ARIA attribute?** (`[role]`, `[aria-label]`, etc.)
+   - ✅ Yes → Use ARIA selector (e.g., `[role="heading"]`)
+   - ❌ No → Continue to step 2
+
+2. **Has test ID?** (`[data-testid]`, `#id`)
+   - ✅ Yes → Use test ID (e.g., `#submit-button`)
+   - ❌ No → Continue to step 3
+
+3. **Has stable text?**
+   - ✅ Yes → Use text-based discovery (`$$eval` + `find`)
+   - ❌ No → Continue to step 4
+
+4. **Last resort** → Use semantic tags (`h1`, `button`, `input`, etc.)
+
+> **Always add fallback selectors as backup regardless of which strategy you use.**
 
 ### CSS Selectors vs Text-Based Discovery
 
@@ -471,43 +448,22 @@ try {
 
 ### Session Management Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     SESSION MANAGEMENT ARCHITECTURE                      │
-└─────────────────────────────────────────────────────────────────────────┘
+| Layer       | Component        | Description                                 |
+| ----------- | ---------------- | ------------------------------------------- |
+| **Workers** | Worker 1, 2, 3   | Parallel processes handling accounts        |
+| **Locking** | Redis Redlock    | Distributed locks with TTL (e.g., 10min)    |
+| **Storage** | Browser Profiles | Isolated cookies & localStorage per account |
 
-    Worker 1              Worker 2              Worker 3
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│ Process       │     │ Process       │     │ Process       │
-│ Account A     │     │ Account B     │     │ Account A     │
-└───────┬───────┘     └───────┬───────┘     └───────┬───────┘
-        │                     │                     │
-        └──────────┬──────────┴──────────┬──────────┘
-                   │                     │
-                   ▼                     ▼
-        ┌─────────────────────────────────────────┐
-        │              REDIS REDLOCK              │
-        │  ┌─────────────┐  ┌─────────────────┐   │
-        │  │ Lock: A     │  │ Lock: B         │   │
-        │  │ TTL: 10min  │  │ TTL: 10min      │   │
-        │  │ Owner: W1   │  │ Owner: W2       │   │
-        │  └─────────────┘  └─────────────────┘   │
-        │                                         │
-        │  Worker 3 BLOCKED (Account A locked)    │
-        └─────────────────────────────────────────┘
-                            │
-                            ▼
-        ┌─────────────────────────────────────────┐
-        │           Browser Profiles              │
-        │  ┌────────────┐  ┌────────────┐         │
-        │  │ Profile A  │  │ Profile B  │         │
-        │  │ Cookies ✓  │  │ Cookies ✓  │         │
-        │  │ Storage ✓  │  │ Storage ✓  │         │
-        │  └────────────┘  └────────────┘         │
-        └─────────────────────────────────────────┘
-```
+**Flow:**
+
+1. **Worker requests account** → Worker 1 wants Account A
+2. **Acquire lock** → Redis grants lock (Owner: W1, TTL: 10min)
+3. **Process account** → Worker 1 uses Profile A (cookies preserved)
+4. **Concurrent request blocked** → Worker 3 wants Account A → BLOCKED (already locked)
+5. **Release lock** → Worker 1 finishes, releases lock
+6. **Next worker proceeds** → Worker 3 can now acquire Account A
+
+> **Key principle:** One worker per account at any time, enforced by distributed locks.
 
 ### Pattern: Use Distributed Locks per Account
 

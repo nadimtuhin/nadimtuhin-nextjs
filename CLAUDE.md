@@ -207,9 +207,56 @@ Use for feature matrices:
 
 #### 8. Visual Aids
 
-- ASCII diagrams for architecture (in code blocks)
-- Tables for comparisons
-- Keep diagrams readable in monospace
+**IMPORTANT: Do NOT use ASCII art diagrams.** They break on mobile devices and narrow screens.
+
+Instead, use these mobile-friendly alternatives:
+
+1. **Markdown Tables** - For comparisons and structured data
+2. **Ordered/Unordered Lists** - For flows and hierarchies
+3. **Blockquotes with nested content** - For callouts
+4. **Mermaid diagrams** (if supported) - For flowcharts
+5. **Plain text descriptions** - When visuals aren't essential
+
+**Bad (ASCII art - breaks on mobile):**
+
+```
+┌─────────────┐     ┌─────────────┐
+│   Step 1    │────▶│   Step 2    │
+└─────────────┘     └─────────────┘
+```
+
+**Good (Markdown list):**
+
+```markdown
+**Flow:**
+
+1. **Step 1** → Process input
+2. **Step 2** → Validate data
+3. **Step 3** → Return result
+```
+
+**Good (Nested list for hierarchy):**
+
+```markdown
+- **Application Layer**
+  - LangChain Agent
+  - Browser Tools
+- **Automation Layer**
+  - Puppeteer/Playwright
+- **Target**
+  - Website via CDP
+```
+
+**Good (Table for architecture):**
+
+```markdown
+| Layer     | Component       | Purpose            |
+| --------- | --------------- | ------------------ |
+| 1. Input  | User Prompt     | Define task        |
+| 2. Agent  | LangGraph ReAct | Reasoning loop     |
+| 3. Tools  | Browser actions | Execute commands   |
+| 4. Output | Website         | Target interaction |
+```
 
 #### 9. Personal Experience Section
 

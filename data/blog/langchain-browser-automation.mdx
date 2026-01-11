@@ -80,49 +80,21 @@ await agent.executeTask('Go to example.com, search for "query", and get results'
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER PROMPT                             │
-│              "Search for 'puppeteer' on Google"                 │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    LANGGRAPH REACT AGENT                        │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    REASONING LOOP                         │  │
-│  │                                                           │  │
-│  │   ┌─────────┐    ┌──────────┐    ┌─────────────────┐     │  │
-│  │   │ OBSERVE │───▶│  THINK   │───▶│ SELECT ACTION   │     │  │
-│  │   │ (state) │    │  (LLM)   │    │ (tool choice)   │     │  │
-│  │   └─────────┘    └──────────┘    └────────┬────────┘     │  │
-│  │        ▲                                  │              │  │
-│  │        │         ┌──────────────┐         │              │  │
-│  │        └─────────│    ACT      │◀────────┘              │  │
-│  │                  │ (execute)   │                        │  │
-│  │                  └──────────────┘                        │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      BROWSER TOOLS                              │
-│  ┌──────────┐ ┌─────────────┐ ┌───────────┐ ┌───────────────┐  │
-│  │ navigate │ │click_element│ │ type_text │ │ get_page_info │  │
-│  └────┬─────┘ └──────┬──────┘ └─────┬─────┘ └───────┬───────┘  │
-└───────┼──────────────┼──────────────┼───────────────┼───────────┘
-        └──────────────┴──────────────┴───────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              PUPPETEER / PLAYWRIGHT (Browser Control)           │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │ CDP (Chrome DevTools Protocol)
-                                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    BROWSER → WEBSITE                            │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Layer             | Component             | Purpose                                                          |
+| ----------------- | --------------------- | ---------------------------------------------------------------- |
+| **1. Input**      | User Prompt           | Natural language task (e.g., "Search for 'puppeteer' on Google") |
+| **2. Agent**      | LangGraph ReAct Agent | Reasoning loop: Observe → Think → Select Action → Act → Repeat   |
+| **3. Tools**      | Browser Tools         | `navigate`, `click_element`, `type_text`, `get_page_info`        |
+| **4. Automation** | Puppeteer/Playwright  | Browser control via CDP (Chrome DevTools Protocol)               |
+| **5. Target**     | Browser → Website     | Actual web interaction                                           |
+
+**ReAct Reasoning Loop:**
+
+1. **Observe** — Read current page state
+2. **Think** — LLM reasons about next step
+3. **Select Action** — Choose appropriate tool
+4. **Act** — Execute the tool
+5. **Repeat** — Loop until task complete
 
 ### Core Components
 

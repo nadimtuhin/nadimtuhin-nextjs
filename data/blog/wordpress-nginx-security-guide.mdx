@@ -52,49 +52,17 @@ Let's dive into how to tackle this!
 
 ## Request Flow Through Security Layers
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     NGINX SECURITY PIPELINE                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+Every incoming request passes through these security layers in order:
 
-   Incoming Request
-         │
-         ▼
-┌─────────────────────┐     ┌─────────────────┐
-│  1. SECURITY HEADERS │────▶│ HSTS, CSP,      │
-│                     │     │ X-Frame-Options │
-└─────────────────────┘     └─────────────────┘
-         │
-         ▼
-┌─────────────────────┐     ┌─────────────────┐
-│  2. RATE LIMITING   │────▶│ 60r/m API       │
-│                     │     │ 10r/m intensive │
-└─────────────────────┘     │ 600r/m admin    │
-         │                  └─────────────────┘
-         ▼
-┌─────────────────────┐     ┌─────────────────┐
-│  3. ATTACK PATTERN  │────▶│ SQLi, XSS,      │──────▶ 403/444
-│     FILTERING       │     │ Path Traversal  │       BLOCKED
-└─────────────────────┘     └─────────────────┘
-         │
-         ▼
-┌─────────────────────┐     ┌─────────────────┐
-│  4. PATH PROTECTION │────▶│ wp-config.php   │──────▶ 403
-│                     │     │ xmlrpc.php      │       DENIED
-└─────────────────────┘     │ /uploads/*.php  │
-         │                  └─────────────────┘
-         ▼
-┌─────────────────────┐     ┌─────────────────┐
-│  5. STATIC FILES?   │────▶│ jpg,css,js,svg  │──────▶ Serve Direct
-│                     │ NO  │                 │       (No Apache)
-└─────────────────────┘     └─────────────────┘
-         │ YES
-         ▼
-┌─────────────────────┐
-│  Apache/PHP Handler │
-│  (WordPress Core)   │
-└─────────────────────┘
-```
+| Layer                           | Check                                      | Action on Fail                 |
+| ------------------------------- | ------------------------------------------ | ------------------------------ |
+| **1. Security Headers**         | HSTS, CSP, X-Frame-Options                 | Headers added to response      |
+| **2. Rate Limiting**            | 60r/m API, 10r/m intensive, 600r/m admin   | Request throttled              |
+| **3. Attack Pattern Filtering** | SQLi, XSS, Path Traversal                  | 403/444 Blocked                |
+| **4. Path Protection**          | wp-config.php, xmlrpc.php, /uploads/\*.php | 403 Denied                     |
+| **5. Static Files?**            | jpg, css, js, svg                          | Serve directly (bypass Apache) |
+
+**If not static:** Request proceeds to Apache/PHP Handler (WordPress Core)
 
 ## 1. Security Headers
 
@@ -508,51 +476,19 @@ To keep your security implementation effective:
 
 ## Defense-in-Depth Model
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    DEFENSE-IN-DEPTH MODEL                                 │
-└──────────────────────────────────────────────────────────────────────────┘
+Security layers between attacker and WordPress application:
 
-    ATTACKER                                              WORDPRESS
-       │                                                      │
-       │   Layer 1: TRANSPORT SECURITY                        │
-       │   ┌────────────────────────────────────────────┐     │
-       │   │  • HSTS (force HTTPS)                      │     │
-       │   │  • TLS 1.2+ only                           │     │
-       │   │  • server_tokens off                       │     │
-       │   └────────────────────────────────────────────┘     │
-       │                      │                               │
-       │   Layer 2: RATE LIMITING                             │
-       │   ┌────────────────────────────────────────────┐     │
-       │   │  • 60r/m general API                       │     │
-       │   │  • 10r/m intensive operations              │     │
-       │   │  • Burst handling with nodelay             │     │
-       │   └────────────────────────────────────────────┘     │
-       │                      │                               │
-       │   Layer 3: INPUT FILTERING                           │
-       │   ┌────────────────────────────────────────────┐     │
-       │   │  • SQL injection patterns                  │     │
-       │   │  • XSS script tags                         │     │
-       │   │  • Path traversal (../)                    │     │
-       │   └────────────────────────────────────────────┘     │
-       │                      │                               │
-       │   Layer 4: ACCESS CONTROL                            │
-       │   ┌────────────────────────────────────────────┐     │
-       │   │  • Block xmlrpc.php                        │     │
-       │   │  • Protect wp-config.php                   │     │
-       │   │  • Deny hidden files (.git, .env)          │     │
-       │   │  • Block PHP in /uploads/                  │     │
-       │   └────────────────────────────────────────────┘     │
-       │                      │                               │
-       │   Layer 5: RESPONSE HEADERS                          │
-       │   ┌────────────────────────────────────────────┐     │
-       │   │  • Content-Security-Policy                 │     │
-       │   │  • X-Frame-Options: SAMEORIGIN             │     │
-       │   │  • X-Content-Type-Options: nosniff         │     │
-       │   └────────────────────────────────────────────┘     │
-       │                      │                               │
-       ▼                      ▼                               ▼
-   BLOCKED              BLOCKED/LOGGED               PROTECTED APP
-```
+| Layer                     | Protection                  | Components                                                                                      |
+| ------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| **1. Transport Security** | Encrypt & hide server info  | HSTS (force HTTPS), TLS 1.2+ only, server_tokens off                                            |
+| **2. Rate Limiting**      | Throttle excessive requests | 60r/m general API, 10r/m intensive ops, burst handling with nodelay                             |
+| **3. Input Filtering**    | Block malicious payloads    | SQL injection patterns, XSS script tags, path traversal (`../`)                                 |
+| **4. Access Control**     | Restrict sensitive paths    | Block xmlrpc.php, protect wp-config.php, deny hidden files (.git, .env), block PHP in /uploads/ |
+| **5. Response Headers**   | Harden browser behavior     | Content-Security-Policy, X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff           |
+
+**Outcomes:**
+
+- Malicious requests → **Blocked** or **Blocked/Logged**
+- Legitimate requests → **Protected App**
 
 These security measures have proven effective in production environments. Remember to adapt these configurations to your specific needs and regularly test their effectiveness.
